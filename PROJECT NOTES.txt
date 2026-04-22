@@ -68,11 +68,11 @@ It has a 3.3V LDO voltage regulator: MicrOne ME6211.
 The spec sheet of ME6211 reports a max. output current = 500 mA
 
 Power demand:
-  ESP32-S3                        :            ~ 100   mA at max.
+  ESP32-S3                        :            ~ 400   mA at max. with WiFi
   4x INA228 current sense monitors: 4x 0.64 mA =   2.6 mA
   4x thermistors @ 3.3V, 37 'C    : 4x 0.24 mA ~   1   mA at max.
                                              ----------- +
-                                               ~ 104  mA
+                                               ~ 404  mA
 
 Conclusion:
 All four INA228 monitors and thermistors can be powered straight from the 3.3V
