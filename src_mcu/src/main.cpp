@@ -69,44 +69,6 @@ const int BUFLEN = 1024;
 char buf[BUFLEN];
 
 /*------------------------------------------------------------------------------
-  Time keeping
-------------------------------------------------------------------------------*/
-
-void get_systick_timestamp(uint32_t *stamp_millis,
-                           uint16_t *stamp_micros_part) {
-  /* Adapted from:
-  https://github.com/arduino/ArduinoCore-samd/blob/master/cores/arduino/delay.c
-
-  Note:
-    The millis counter will roll over after 49.7 days.
-  */
-  // clang-format off
-  uint32_t ticks, ticks2;
-  uint32_t pend, pend2;
-  uint32_t count, count2;
-  uint32_t _ulTickCount = millis();
-
-  ticks2 = SysTick->VAL;
-  pend2  = !!(SCB->ICSR & SCB_ICSR_PENDSTSET_Msk);
-  count2 = _ulTickCount;
-
-  do {
-    ticks  = ticks2;
-    pend   = pend2;
-    count  = count2;
-    ticks2 = SysTick->VAL;
-    pend2  = !!(SCB->ICSR & SCB_ICSR_PENDSTSET_Msk);
-    count2 = _ulTickCount;
-  } while ((pend != pend2) || (count != count2) || (ticks < ticks2));
-
-  (*stamp_millis) = count2;
-  if (pend) {(*stamp_millis)++;}
-  (*stamp_micros_part) =
-    (((SysTick->LOAD - ticks) * (1048576 / (VARIANT_MCK / 1000000))) >> 20);
-  // clang-format on
-}
-
-/*------------------------------------------------------------------------------
     setup
 ------------------------------------------------------------------------------*/
 
@@ -178,16 +140,15 @@ void loop() {
   // float T_die;   // ['C] Die temperature
 
   // Time keeping
-  uint32_t millis_copy = millis();
-  uint16_t micros_part;
+  uint32_t now = millis();
 
   /*----------------------------------------------------------------------------
     Process incoming serial commands every PERIOD_SC milliseconds
   ----------------------------------------------------------------------------*/
-  static uint32_t tick_sc = millis_copy;
+  static uint32_t tick_sc = now;
 
-  if ((millis_copy - tick_sc) > PERIOD_SC) {
-    tick_sc = millis_copy;
+  if ((now - tick_sc) > PERIOD_SC) {
+    tick_sc = now;
     if (sc.available()) {
       strCmd = sc.getCommand();
 
@@ -217,12 +178,7 @@ void loop() {
   ----------------------------------------------------------------------------*/
 
   if (DAQ_running && ina228_sensors[0].conversionReady()) {
-    get_systick_timestamp(&millis_copy, &micros_part);
-
-    snprintf(buf, BUFLEN,
-             "%lu\t" // Timestamp millis [ms]
-             "%u",   // Timestamp micros part [us]
-             millis_copy, micros_part);
+    snprintf(buf, BUFLEN, "%lu", now); // Timestamp [ms]
 
     for (auto &ina228 : ina228_sensors) {
       I = ina228.readCurrent();
