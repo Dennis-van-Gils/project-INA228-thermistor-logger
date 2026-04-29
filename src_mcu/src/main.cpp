@@ -48,16 +48,16 @@ const size_t N_SENSORS = sizeof(INA228_ADDRESSES) / sizeof(INA228_ADDRESSES[0]);
 Adafruit_INA228 ina228_sensors[N_SENSORS];
 
 // Shunt resistor value [Ohm]
-const float INA228_SHUNT_RES = 0.015;
+const float INA228_SHUNT_RES = 1.0;
 
 // Maximum expected current [A]
-const float INA228_MAX_CURRENT = 0.001;
+const float INA228_MAX_CURRENT = 0.0005;
 
 // Shunt full scale ADC range: [0: ±163.84 mV, 1: ±40.96 mV]
 const uint8_t INA228_ADC_RANGE = 1;
 
 // Averaging count: 1, 4, 16, 64, 128, 256, 512, 1024
-const INA2XX_AveragingCount INA228_AVERAGING_COUNT = INA228_COUNT_1024;
+const INA2XX_AveragingCount INA228_AVERAGING_COUNT = INA228_COUNT_128;
 
 // Conversion time: 50, 84, 150, 280, 540, 1052, 2074, 4120 [us]
 const INA2XX_ConversionTime INA228_CONV_TIME_CURRENT = INA228_TIME_4120_us;
@@ -115,6 +115,7 @@ void setup() {
     i++;
 
     ina228.setMode(INA228_MODE_CONT_BUS_SHUNT);
+    // ina228.setMode(INA228_MODE_CONT_TEMP_BUS_SHUNT);
     ina228.setShunt(INA228_SHUNT_RES, INA228_MAX_CURRENT);
     ina228.setADCRange(INA228_ADC_RANGE);
     ina228.setAveragingCount(INA228_AVERAGING_COUNT);
@@ -135,7 +136,7 @@ void loop() {
   float I;                        // Current [mA]
   float V;                        // Bus voltage [mV]
   float V_shunt;                  // Shunt voltage [mV]
-  // float T_die;             // Die temperature ['C]
+  float T_die;                    // Die temperature ['C]
 
   /*----------------------------------------------------------------------------
     Process incoming serial commands every PERIOD_SC milliseconds
@@ -174,16 +175,18 @@ void loop() {
     for (auto &ina228 : ina228_sensors) {
       I = ina228.readCurrent();            // [mA]
       V = ina228.readBusVoltage();         // [V]
-      V_shunt = ina228.readShuntVoltage(); // [V]
+      V_shunt = ina228.readShuntVoltage(); // [mV]
       // T_die = ina228.readDieTemp();        // ['C]
 
       snprintf(buf + strlen(buf), BUFLEN - strlen(buf),
-               "\t"
-               "%.6f\t" // V bus
-               "%.7f\t" // V shunt
-               "%.4f\t" // I
-               "%.1f",  // R
-               V, V_shunt, I, V / I * 1000.);
+               "\t%.4f V"   // V bus
+               "\t%.4f mV"  // V shunt
+               "\t%.4f mA"  // I
+               "\t%.1f Ohm" // R
+               //"\t%.1f 'C"  // T die
+               ,
+               V, V_shunt, I, V / I * 1000. //, T_die
+      );
     }
 
     Ser.println(buf);
