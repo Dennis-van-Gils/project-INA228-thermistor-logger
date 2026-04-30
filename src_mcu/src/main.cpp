@@ -1,49 +1,58 @@
-/*
-INA228 thermistor logger
-
-
-Hardware
---------
-Supported microcontrollers:
-  - Adafruit Feather M4 Express (ADA3857)
-  - Adafruit ItsyBitsy M4 Express (ADA3800)
-  - WEMOS LOLIN ESP32-S3 Mini
-
-Sensors:
-  - Adafruit INA228 (ADA5832): I2C 85V, 20-bit High or Low Side Power Monitor
-    featuring Texas Instruments INA228
-
-Thermistors:
-  - Measurement Specialties (GA)G22K7MCD419
-    Glass bead Ø0.38mm, 30 ms response time in liquids
-
-
-How to compile
---------------
-When using ESP32-S3 within VSCode using the Arduino framework, see the guide at:
-https://github.com/pioarduino/platform-espressif32
-NOTE: Currently only supports Espressif Arduino 3.3.8 and IDF v5.5.4
-
-
-https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger
-Dennis van Gils, 21-04-2026
-*/
+/**
+ * @file    main.cpp
+ * @author  Dennis van Gils (vangils.dennis@gmail.com)
+ * @version https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger
+ * @date    21-04-2026
+ *
+ * @brief   Firmware for the INA228 thermistor logger.
+ *
+ * Hardware
+ * --------
+ * Supported and tested microcontrollers:
+ *   - Adafruit Feather M4 Express (ADA3857)
+ *   - Adafruit ItsyBitsy M4 Express (ADA3800)
+ *   - WEMOS LOLIN ESP32-S3 Mini
+ *
+ * Sensors:
+ *   - Adafruit INA228 (ADA5832): I2C 85V, 20-bit High or Low Side Power Monitor
+ *     featuring Texas Instruments INA228
+ *     NOTE: Replaced the onboard shunt resistor of 0.015 Ohm with a 1.0 Ohm
+ *           one.
+ *
+ * Thermistors:
+ *   - Measurement Specialties (GA)G22K7MCD419
+ *     Glass bead Ø0.38mm, 30 ms response time in liquids.
+ *
+ * How to compile
+ * --------------
+ * When using an ESP32 microcontroller within VSCode using the Arduino
+ * framework, see the guide at:
+ * https://github.com/pioarduino/platform-espressif32
+ * NOTE: Currently only supports Espressif Arduino 3.3.8 and IDF v5.5.4
+ *
+ * @copyright MIT License. See the LICENSE file for details.
+ */
 
 #include <Arduino.h>
 
 #include "Adafruit_INA228.h"
 #include "DvG_StreamCommand.h"
 
-// When true, waits for a serial connection and prints the INA228 connection
-// status to the serial stream.
-const bool VERBOSE = false;
+#ifdef ESP32
+#include "secrets.h"
+#include <WiFi.h>
+#include <esp_wifi.h>
+#endif
+
+// When true, prints debug information to the serial stream
+const bool DEBUG = true;
 
 /*------------------------------------------------------------------------------
   INA228
 ------------------------------------------------------------------------------*/
 
-// const uint8_t INA228_ADDRESSES[] = {0x40, 0x41, 0x44, 0x45};
-const uint8_t INA228_ADDRESSES[] = {0x40};
+const uint8_t INA228_ADDRESSES[] = {0x40, 0x41, 0x44, 0x45};
+// const uint8_t INA228_ADDRESSES[] = {0x40};
 const size_t N_SENSORS = sizeof(INA228_ADDRESSES) / sizeof(INA228_ADDRESSES[0]);
 Adafruit_INA228 ina228_sensors[N_SENSORS];
 
@@ -68,18 +77,57 @@ const INA2XX_ConversionTime INA228_CONV_TIME_TEMP = INA228_TIME_4120_us;
 const bool SKIP_RESET = true;
 
 /*------------------------------------------------------------------------------
+  Serial port and char buffers
 ------------------------------------------------------------------------------*/
 
 // Instantiate serial port listener for receiving ASCII commands
-#define Ser Serial
 const uint32_t PERIOD_SC = 20;   // Period to listen for serial commands [ms]
 const uint8_t CMD_BUF_LEN = 16;  // Length of the ASCII command buffer
 char cmd_buf[CMD_BUF_LEN]{'\0'}; // The ASCII command buffer
-DvG_StreamCommand sc(Ser, cmd_buf, CMD_BUF_LEN);
+DvG_StreamCommand sc(Serial, cmd_buf, CMD_BUF_LEN);
 
 // General string buffer
 const int BUFLEN = 1024;
 char buf[BUFLEN];
+
+/*------------------------------------------------------------------------------
+  ESP32 related
+------------------------------------------------------------------------------*/
+
+#ifdef ESP32
+
+/**
+ * @brief Print the MAC address of the ESP mcu to the serial stream.
+ */
+void print_ESP_MAC_address() {
+  uint8_t baseMac[6];
+  esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
+
+  Serial.print("MAC address: ");
+  if (ret == ESP_OK) {
+    Serial.printf("%02X:%02X:%02X:%02X:%02X:%02X\n", baseMac[0], baseMac[1],
+                  baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  } else {
+    Serial.println("Failed to read MAC address");
+  }
+}
+
+/**
+ * @brief Print the WiFi status of the ESP mcu to the serial stream.
+ */
+void print_WiFi_status() {
+  Serial.print("  SSID: ");
+  Serial.println(WiFi.SSID());
+
+  Serial.print("  IP  : ");
+  Serial.println(WiFi.localIP());
+
+  Serial.print("  RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+}
+
+#endif
 
 /*------------------------------------------------------------------------------
   setup
@@ -90,27 +138,59 @@ void setup() {
   asm(".global _printf_float"); // Enables float support for `snprintf()`
 #endif
 
-  Ser.begin(115200);
-  if (VERBOSE) {
-    while (!Ser) {
+  Serial.begin(115200);
+  /*
+  if (DEBUG) {
+    while (!Serial) {
       delay(10);
     }
   }
+  */
 
+#ifdef ESP32
+  // Establish WiFi connection
+  WiFi.useStaticBuffers(true);
+  WiFi.mode(WIFI_STA);
+
+  if (DEBUG) {
+    print_ESP_MAC_address();
+    Serial.print("Connecting to WiFi: ");
+    Serial.println(ssid);
+  }
+
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    if (DEBUG) {
+      Serial.print(".");
+    }
+  }
+
+  if (DEBUG) {
+    Serial.println("\nConnected to WiFi");
+    print_WiFi_status();
+  }
+#endif
+
+  // Connect to INA228 sensors
+  if (DEBUG) {
+    Serial.println("Connecting to INA228 sensors:");
+  }
   uint8_t i = 0;
   for (auto &ina228 : ina228_sensors) {
     uint8_t i2c_address = INA228_ADDRESSES[i];
 
     if (!ina228.begin(i2c_address, &Wire, SKIP_RESET)) {
-      Ser.print("Could not find INA228 chip at address 0x");
-      Ser.println(i2c_address, HEX);
       while (1) {
+        Serial.print("Could not connect to INA228 sensor at address 0x");
+        Serial.println(i2c_address, HEX);
+        delay(2000);
       }
     }
 
-    if (VERBOSE) {
-      Ser.print("Found INA228 chip at address 0x");
-      Ser.println(i2c_address, HEX);
+    if (DEBUG) {
+      Serial.print("  Success at address 0x");
+      Serial.println(i2c_address, HEX);
     }
     i++;
 
@@ -133,10 +213,11 @@ void loop() {
   uint32_t now = millis();        // Timestamp [ms]
   char *strCmd;                   // Incoming serial command string
   static bool DAQ_running = true; // Continuously output readings?
-  float I;                        // Current [mA]
-  float V;                        // Bus voltage [mV]
+  float V;                        // Bus voltage [V]
   float V_shunt;                  // Shunt voltage [mV]
-  float T_die;                    // Die temperature ['C]
+  float I;                        // Current [mA]
+  float R;                        // Calculated resistance [Ohm]
+  float T_die;                    // Die temperature of INA228 chip ['C]
 
   /*----------------------------------------------------------------------------
     Process incoming serial commands every PERIOD_SC milliseconds
@@ -150,7 +231,7 @@ void loop() {
       strCmd = sc.getCommand();
 
       if (strcmp(strCmd, "id?") == 0) {
-        Ser.println("Arduino, INA228 thermistor logger");
+        Serial.println("Arduino, INA228 thermistor logger");
         DAQ_running = false;
 
       } else if (strcmp(strCmd, "on") == 0) {
@@ -173,22 +254,23 @@ void loop() {
     snprintf(buf, BUFLEN, "%lu", now); // Timestamp [ms]
 
     for (auto &ina228 : ina228_sensors) {
-      I = ina228.readCurrent();            // [mA]
       V = ina228.readBusVoltage();         // [V]
       V_shunt = ina228.readShuntVoltage(); // [mV]
+      I = ina228.readCurrent();            // [mA]
+      R = V / I * 1000.;                   // [Ohm]
       // T_die = ina228.readDieTemp();        // ['C]
 
       snprintf(buf + strlen(buf), BUFLEN - strlen(buf),
-               "\t%.4f V"   // V bus
-               "\t%.4f mV"  // V shunt
-               "\t%.4f mA"  // I
-               "\t%.1f Ohm" // R
+               "\t%.5f" // V_bus [V]
+               "\t%.5f" // V_shunt [mV]
+               "\t%.5f" // I [mA]
+               "\t%.0f" // R [Ohm]
                //"\t%.1f 'C"  // T die
                ,
-               V, V_shunt, I, V / I * 1000. //, T_die
+               V, V_shunt, I, R //, T_die
       );
     }
 
-    Ser.println(buf);
+    Serial.println(buf);
   }
 }
