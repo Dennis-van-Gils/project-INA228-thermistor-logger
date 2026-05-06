@@ -42,6 +42,13 @@
 #include "secrets.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
+
+WiFiServer server(23);
+WiFiClient client;
+#endif
+
+#if defined(_VARIANT_FEATHER_M4_) || defined(_VARIANT_ITSYBITSY_M4_)
+asm(".global _printf_float"); // Enables float support for `snprintf()`
 #endif
 
 // When true, prints debug information to the serial stream
@@ -77,29 +84,40 @@ const INA2XX_ConversionTime INA228_CONV_TIME_TEMP = INA228_TIME_4120_us;
 const bool SKIP_RESET = true;
 
 /*------------------------------------------------------------------------------
-  Serial port and char buffers
+  Char buffers and command listeners
 ------------------------------------------------------------------------------*/
-
-// Instantiate serial port listener for receiving ASCII commands
-const uint32_t PERIOD_SC = 20;   // Period to listen for serial commands [ms]
-const uint8_t CMD_BUF_LEN = 16;  // Length of the ASCII command buffer
-char cmd_buf[CMD_BUF_LEN]{'\0'}; // The ASCII command buffer
-DvG_StreamCommand sc(Serial, cmd_buf, CMD_BUF_LEN);
 
 // General string buffer
 const int BUFLEN = 1024;
 char buf[BUFLEN];
 
-/*------------------------------------------------------------------------------
-  ESP32 related
-------------------------------------------------------------------------------*/
+// Serial port listener for receiving ASCII commands
+const uint32_t PERIOD_SC = 20;   // Period to listen for commands [ms]
+const uint8_t CMD_BUF_LEN = 16;  // Length of the ASCII command buffer
+char cmd_buf[CMD_BUF_LEN]{'\0'}; // ASCII command buffer for Serial
+DvG_StreamCommand sc(Serial, cmd_buf, CMD_BUF_LEN);
 
 #ifdef ESP32
+// WiFi client listener for receiving ASCII commands
+char cmd_buf_wifi[CMD_BUF_LEN]{'\0'}; // ASCII command buffer for WiFi client
+DvG_StreamCommand sc_wifi(client, cmd_buf_wifi, CMD_BUF_LEN);
+#endif
 
-/**
- * @brief Print the MAC address of the ESP mcu to the serial stream.
- */
-void print_ESP_MAC_address() {
+/*------------------------------------------------------------------------------
+  Helper functions
+------------------------------------------------------------------------------*/
+
+void println(const char *str) {
+  Serial.println(str);
+#ifdef ESP32
+  if (client && client.connected()) {
+    client.println(str);
+  }
+#endif
+}
+
+#ifdef ESP32
+void print_esp_mac_address() {
   uint8_t baseMac[6];
   esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
 
@@ -112,21 +130,15 @@ void print_ESP_MAC_address() {
   }
 }
 
-/**
- * @brief Print the WiFi status of the ESP mcu to the serial stream.
- */
-void print_WiFi_status() {
+void print_wifi_status() {
   Serial.print("  SSID: ");
   Serial.println(WiFi.SSID());
-
   Serial.print("  IP  : ");
   Serial.println(WiFi.localIP());
-
   Serial.print("  RSSI: ");
   Serial.print(WiFi.RSSI());
   Serial.println(" dBm");
 }
-
 #endif
 
 /*------------------------------------------------------------------------------
@@ -134,10 +146,6 @@ void print_WiFi_status() {
 ------------------------------------------------------------------------------*/
 
 void setup() {
-#if defined(_VARIANT_FEATHER_M4_) || defined(_VARIANT_ITSYBITSY_M4_)
-  asm(".global _printf_float"); // Enables float support for `snprintf()`
-#endif
-
   Serial.begin(115200);
   /*
   if (DEBUG) {
@@ -151,9 +159,11 @@ void setup() {
   // Establish WiFi connection
   WiFi.useStaticBuffers(true);
   WiFi.mode(WIFI_STA);
+  // WiFi.config(IPAddress(192, 168, 1, 123), IPAddress(192, 168, 1, 1),
+  //             IPAddress(255, 255, 255, 0));
 
   if (DEBUG) {
-    print_ESP_MAC_address();
+    print_esp_mac_address();
     Serial.print("Connecting to WiFi: ");
     Serial.println(ssid);
   }
@@ -168,8 +178,10 @@ void setup() {
 
   if (DEBUG) {
     Serial.println("\nConnected to WiFi");
-    print_WiFi_status();
+    print_wifi_status();
   }
+
+  server.begin();
 #endif
 
   // Connect to INA228 sensors
@@ -211,7 +223,8 @@ void setup() {
 
 void loop() {
   uint32_t now = millis();        // Timestamp [ms]
-  char *strCmd;                   // Incoming serial command string
+  char *str_cmd;                  // Incoming command string
+  bool cmd_pending = false;       // Command is pending to be processed?
   static bool DAQ_running = true; // Continuously output readings?
   float V;                        // Bus voltage [V]
   float V_shunt;                  // Shunt voltage [mV]
@@ -219,8 +232,20 @@ void loop() {
   float R;                        // Calculated resistance [Ohm]
   float T_die;                    // Die temperature of INA228 chip ['C]
 
+#ifdef ESP32
+  if (server.hasClient()) {
+    if (!client || !client.connected()) {
+      client = server.accept();
+      client.println("READY");
+    } else {
+      WiFiClient reject = server.accept();
+      reject.stop();
+    }
+  }
+#endif
+
   /*----------------------------------------------------------------------------
-    Process incoming serial commands every PERIOD_SC milliseconds
+    Process incoming commands every PERIOD_SC milliseconds
   ----------------------------------------------------------------------------*/
   static uint32_t tick_sc = now;
 
@@ -228,16 +253,26 @@ void loop() {
     tick_sc = now;
 
     if (sc.available()) {
-      strCmd = sc.getCommand();
+      str_cmd = sc.getCommand();
+      cmd_pending = true;
+    }
 
-      if (strcmp(strCmd, "id?") == 0) {
-        Serial.println("Arduino, INA228 thermistor logger");
+#ifdef ESP32
+    if (client && client.connected() && sc_wifi.available()) {
+      str_cmd = sc_wifi.getCommand();
+      cmd_pending = true;
+    }
+#endif
+
+    if (cmd_pending) {
+      if (strcmp(str_cmd, "id?") == 0) {
+        println("Arduino, INA228 thermistor logger");
         DAQ_running = false;
 
-      } else if (strcmp(strCmd, "on") == 0) {
+      } else if (strcmp(str_cmd, "on") == 0) {
         DAQ_running = true;
 
-      } else if (strcmp(strCmd, "off") == 0) {
+      } else if (strcmp(str_cmd, "off") == 0) {
         DAQ_running = false;
 
       } else {
@@ -271,6 +306,6 @@ void loop() {
       );
     }
 
-    Serial.println(buf);
+    println(buf);
   }
 }
