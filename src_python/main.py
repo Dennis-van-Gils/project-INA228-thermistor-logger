@@ -150,6 +150,7 @@ class MainWindow(QtWid.QWidget):
             "Click to start recording to file", minimumHeight=40
         )
         self.qpbt_record.setMinimumWidth(400)
+        # pylint: disable-next=E1101
         self.qpbt_record.clicked.connect(lambda state: qlog.record(state))
 
         vbox_middle = QtWid.QVBoxLayout()
@@ -164,7 +165,7 @@ class MainWindow(QtWid.QWidget):
             "parent": self,
         }
         self.qpbt_exit = QtWid.QPushButton("Exit")
-        self.qpbt_exit.clicked.connect(self.close)
+        self.qpbt_exit.clicked.connect(self.close)  # pylint: disable=E1101
         self.qpbt_exit.setMinimumHeight(30)
         self.qlbl_GitHub = QtWid.QLabel(
             f'<a href="{__url__}">GitHub source</a>', **p
@@ -371,6 +372,7 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_running = controls.create_Toggle_button(
             "Running", checked=True
         )
+        # pylint: disable-next=E1101
         self.qpbt_running.clicked.connect(
             lambda state: self.process_qpbt_running(state)
         )
@@ -438,7 +440,7 @@ class MainWindow(QtWid.QWidget):
     #   Handle controls
     # --------------------------------------------------------------------------
 
-    def link_legend_to_tscurves_E(self):
+    def link_legend_to_tscurves_R(self):
         """Legend currently only hides/shows the power curves. I'd like to have
         the energy curves follow the visibility of the power curves. We have to
         add them in manually, hence this method."""
@@ -469,7 +471,7 @@ class MainWindow(QtWid.QWidget):
             else ""
         )
 
-        self.link_legend_to_tscurves_E()
+        self.link_legend_to_tscurves_R()
 
         if self.do_update_readings_GUI and state.INA228_sensors[0].time.is_full:
             self.timestamp.setText(f"{state.INA228_sensors[0].time[0]:.1f}")
@@ -663,5 +665,5 @@ if __name__ == "__main__":
     ard_qdev.start()
     ard_qdev.unpause_DAQ()
 
-    app.aboutToQuit.connect(about_to_quit)
+    app.aboutToQuit.connect(about_to_quit)  # pylint: disable=E1101
     sys.exit(app.exec())
