@@ -255,12 +255,10 @@ void loop() {
 
       } else if (strcmp(str_cmd, "addr?") == 0) {
         // Report the addresses of all INA228 sensors
-        snprintf(buf, BUF_LEN, "\0");
-        for (int i = 0; i < N_SENSORS; i++) {
-          snprintf(buf + strlen(buf), BUF_LEN, "0x%02X", INA228_ADDRESSES[i]);
-          if (i < N_SENSORS - 1) {
-            snprintf(buf + strlen(buf), BUF_LEN, "\t");
-          }
+        snprintf(buf, BUF_LEN, "0x%02X", INA228_ADDRESSES[0]);
+        for (uint8_t i = 1; i < N_SENSORS; i++) {
+          int n = strlen(buf);
+          snprintf(buf + n, BUF_LEN - n, "\t0x%02X", INA228_ADDRESSES[i]);
         }
         println(buf);
         DAQ_running = false;
@@ -321,7 +319,8 @@ void loop() {
       float R = V_bus / I * 1000.;               // [Ohm]
       // float T_die = ina228.readDieTemp();        // ['C]
 
-      snprintf(buf + strlen(buf), BUF_LEN - strlen(buf),
+      int n = strlen(buf);
+      snprintf(buf + n, BUF_LEN - n,
                "\t%.5f" // V_bus   [V]
                "\t%.5f" // V_shunt [mV]
                "\t%.5f" // I       [mA]
