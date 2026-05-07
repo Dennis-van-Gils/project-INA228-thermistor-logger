@@ -1,0 +1,3 @@
+conda create -n ina228 -c conda-forge --force -y python=3.14
+conda activate ina228
+pip install -r requirements.txt
