@@ -1,0 +1,14 @@
+ipython
+matplotlib
+numpy>=1.15,<3.0
+psutil
+pyopengl~=3.1
+pyside6
+qtpy
+
+dvg-debug-functions~=2.5
+dvg-devices~=1.5
+dvg-pyqt-controls~=1.5
+dvg-pyqt-filelogger~=1.4
+dvg-pyqtgraph-threadsafe~=3.4
+dvg-qdeviceio~=1.6
