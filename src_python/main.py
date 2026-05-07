@@ -7,7 +7,7 @@ current and resistance values of each thermistor.
 
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
-__url__ = "https://github.com/Dennis-van-Gils/project-INA288-thermistor-logger"
+__url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
 __date__ = "07-05-2026"
 __version__ = "0.1"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
@@ -513,13 +513,14 @@ if __name__ == "__main__":
 
     ard = INA228_ThermistorLoggerArduino(ring_buffer_capacity=1)
     ard.auto_connect()
-    ard.begin()
-    ard.turn_on()
 
     if not ard.is_alive:
         print("\nCheck connection and try resetting the Arduino.")
-        print("Exiting...\n")
-        sys.exit(0)
+        # print("Exiting...\n")
+        # sys.exit(0)
+    else:
+        ard.begin()
+        ard.turn_on()
 
     # --------------------------------------------------------------------------
     #   Create application
