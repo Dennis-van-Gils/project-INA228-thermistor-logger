@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """PyQt/PySide module to provide multithreaded communication and periodical data
-acquisition for an Arduino programmed as an INA228 theristor logger.
+acquisition for an Arduino programmed as an INA228 thermistor logger.
 """
 
 __author__ = "Dennis van Gils"
