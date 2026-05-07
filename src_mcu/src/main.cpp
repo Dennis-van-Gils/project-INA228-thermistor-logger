@@ -51,15 +51,11 @@ WiFiClient client;
 asm(".global _printf_float"); // Enables float support for `snprintf()`
 #endif
 
-// When true, prints debug information to the serial stream
-const bool DEBUG = true;
-
 /*------------------------------------------------------------------------------
   INA228
 ------------------------------------------------------------------------------*/
 
 const uint8_t INA228_ADDRESSES[] = {0x40, 0x41, 0x44, 0x45};
-// const uint8_t INA228_ADDRESSES[] = {0x40};
 const size_t N_SENSORS = sizeof(INA228_ADDRESSES) / sizeof(INA228_ADDRESSES[0]);
 Adafruit_INA228 ina228_sensors[N_SENSORS];
 
@@ -87,19 +83,18 @@ const bool SKIP_RESET = true;
   Char buffers and command listeners
 ------------------------------------------------------------------------------*/
 
-// General string buffer
-const int BUFLEN = 1024;
-char buf[BUFLEN];
+const int BUF_LEN = 1024; // Length of the general string buffer
+char buf[BUF_LEN];        // General string buffer
 
+const uint8_t CMD_BUF_LEN = 16; // Length of the ASCII command buffer
+const uint32_t PERIOD_SC = 20;  // Update period to listen for commands [ms]
+char cmd_buf_serial[CMD_BUF_LEN]{'\0'}; // ASCII command buffer for Serial
 // Serial port listener for receiving ASCII commands
-const uint32_t PERIOD_SC = 20;   // Period to listen for commands [ms]
-const uint8_t CMD_BUF_LEN = 16;  // Length of the ASCII command buffer
-char cmd_buf[CMD_BUF_LEN]{'\0'}; // ASCII command buffer for Serial
-DvG_StreamCommand sc(Serial, cmd_buf, CMD_BUF_LEN);
+DvG_StreamCommand sc_serial(Serial, cmd_buf_serial, CMD_BUF_LEN);
 
 #ifdef ESP32
-// WiFi client listener for receiving ASCII commands
 char cmd_buf_wifi[CMD_BUF_LEN]{'\0'}; // ASCII command buffer for WiFi client
+// WiFi client listener for receiving ASCII commands
 DvG_StreamCommand sc_wifi(client, cmd_buf_wifi, CMD_BUF_LEN);
 #endif
 
@@ -117,27 +112,18 @@ void println(const char *str) {
 }
 
 #ifdef ESP32
-void print_esp_mac_address() {
+char *pretty_esp_wifi_mac_address() {
   uint8_t baseMac[6];
   esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
 
-  Serial.print("MAC address: ");
   if (ret == ESP_OK) {
-    Serial.printf("%02X:%02X:%02X:%02X:%02X:%02X\n", baseMac[0], baseMac[1],
-                  baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+    snprintf(buf, BUF_LEN, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0],
+             baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
   } else {
-    Serial.println("Failed to read MAC address");
+    snprintf(buf, BUF_LEN, "00:00:00:00:00:00");
   }
-}
 
-void print_wifi_status() {
-  Serial.print("  SSID: ");
-  Serial.println(WiFi.SSID());
-  Serial.print("  IP  : ");
-  Serial.println(WiFi.localIP());
-  Serial.print("  RSSI: ");
-  Serial.print(WiFi.RSSI());
-  Serial.println(" dBm");
+  return buf;
 }
 #endif
 
@@ -148,46 +134,50 @@ void print_wifi_status() {
 void setup() {
   Serial.begin(115200);
   /*
-  if (DEBUG) {
-    while (!Serial) {
-      delay(10);
-    }
+  while (!Serial) {
+    delay(10);
   }
   */
 
 #ifdef ESP32
-  // Establish WiFi connection
+  /*----------------------------------------------------------------------------
+  Establish WiFi connection
+  ----------------------------------------------------------------------------*/
+
+  Serial.print("MAC address: ");
+  Serial.println(pretty_esp_wifi_mac_address());
+
   WiFi.useStaticBuffers(true);
   WiFi.mode(WIFI_STA);
   // WiFi.config(IPAddress(192, 168, 1, 123), IPAddress(192, 168, 1, 1),
   //             IPAddress(255, 255, 255, 0));
 
-  if (DEBUG) {
-    print_esp_mac_address();
-    Serial.print("Connecting to WiFi: ");
-    Serial.println(ssid);
-  }
-
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(ssid);
   WiFi.begin(ssid, pass);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    if (DEBUG) {
-      Serial.print(".");
-    }
+    Serial.print(".");
   }
 
-  if (DEBUG) {
-    Serial.println("\nConnected to WiFi");
-    print_wifi_status();
-  }
+  Serial.println("\nConnected to WiFi");
+  Serial.print("  SSID: ");
+  Serial.println(WiFi.SSID());
+  Serial.print("  IP  : ");
+  Serial.println(WiFi.localIP());
+  Serial.print("  RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
 
   server.begin();
 #endif
 
-  // Connect to INA228 sensors
-  if (DEBUG) {
-    Serial.println("Connecting to INA228 sensors:");
-  }
+  /*----------------------------------------------------------------------------
+    Connect to INA228 sensors
+  ----------------------------------------------------------------------------*/
+
+  Serial.println("Connecting to INA228 sensors:");
+
   uint8_t i = 0;
   for (auto &ina228 : ina228_sensors) {
     uint8_t i2c_address = INA228_ADDRESSES[i];
@@ -200,10 +190,8 @@ void setup() {
       }
     }
 
-    if (DEBUG) {
-      Serial.print("  Success at address 0x");
-      Serial.println(i2c_address, HEX);
-    }
+    Serial.print("  Success at address 0x");
+    Serial.println(i2c_address, HEX);
     i++;
 
     ina228.setMode(INA228_MODE_CONT_BUS_SHUNT);
@@ -223,14 +211,10 @@ void setup() {
 
 void loop() {
   uint32_t now = millis();        // Timestamp [ms]
+  static uint32_t tick_sc = now;  // Last timestamp of command listener [ms]
   char *str_cmd;                  // Incoming command string
   bool cmd_pending = false;       // Command is pending to be processed?
   static bool DAQ_running = true; // Continuously output readings?
-  float V;                        // Bus voltage [V]
-  float V_shunt;                  // Shunt voltage [mV]
-  float I;                        // Current [mA]
-  float R;                        // Calculated resistance [Ohm]
-  float T_die;                    // Die temperature of INA228 chip ['C]
 
 #ifdef ESP32
   if (server.hasClient()) {
@@ -245,15 +229,14 @@ void loop() {
 #endif
 
   /*----------------------------------------------------------------------------
-    Process incoming commands every PERIOD_SC milliseconds
+    Process incoming commands
   ----------------------------------------------------------------------------*/
-  static uint32_t tick_sc = now;
 
   if ((now - tick_sc) > PERIOD_SC) {
     tick_sc = now;
 
-    if (sc.available()) {
-      str_cmd = sc.getCommand();
+    if (sc_serial.available()) {
+      str_cmd = sc_serial.getCommand();
       cmd_pending = true;
     }
 
@@ -265,6 +248,7 @@ void loop() {
 #endif
 
     if (cmd_pending) {
+
       if (strcmp(str_cmd, "id?") == 0) {
         println("Arduino, INA228 thermistor logger");
         DAQ_running = false;
@@ -275,8 +259,38 @@ void loop() {
       } else if (strcmp(str_cmd, "off") == 0) {
         DAQ_running = false;
 
-      } else {
-        DAQ_running = !DAQ_running;
+      } else if (strcmp(str_cmd, "mac?") == 0) {
+        DAQ_running = false;
+#ifdef ESP32
+        println(pretty_esp_wifi_mac_address());
+#else
+        println("00:00:00:00:00:00");
+#endif
+
+      } else if (strcmp(str_cmd, "ssid?") == 0) {
+        DAQ_running = false;
+#ifdef ESP32
+        println(WiFi.SSID().c_str());
+#else
+        println("Not available");
+#endif
+
+      } else if (strcmp(str_cmd, "ip?") == 0) {
+        DAQ_running = false;
+#ifdef ESP32
+        println(WiFi.localIP().toString().c_str());
+#else
+        println("0.0.0.0");
+#endif
+
+      } else if (strcmp(str_cmd, "rssi?") == 0) {
+        DAQ_running = false;
+#ifdef ESP32
+        itoa(WiFi.RSSI(), buf, 10);
+        println(buf);
+#else
+        println("0");
+#endif
       }
     }
   }
@@ -286,23 +300,23 @@ void loop() {
   ----------------------------------------------------------------------------*/
 
   if (DAQ_running && ina228_sensors[0].conversionReady()) {
-    snprintf(buf, BUFLEN, "%lu", now); // Timestamp [ms]
+    snprintf(buf, BUF_LEN, "%lu", now); // Timestamp [ms]
 
     for (auto &ina228 : ina228_sensors) {
-      V = ina228.readBusVoltage();         // [V]
-      V_shunt = ina228.readShuntVoltage(); // [mV]
-      I = ina228.readCurrent();            // [mA]
-      R = V / I * 1000.;                   // [Ohm]
-      // T_die = ina228.readDieTemp();        // ['C]
+      float V_bus = ina228.readBusVoltage();     // [V]
+      float V_shunt = ina228.readShuntVoltage(); // [mV]
+      float I = ina228.readCurrent();            // [mA]
+      float R = V_bus / I * 1000.;               // [Ohm]
+      // float T_die = ina228.readDieTemp();        // ['C]
 
-      snprintf(buf + strlen(buf), BUFLEN - strlen(buf),
-               "\t%.5f" // V_bus [V]
+      snprintf(buf + strlen(buf), BUF_LEN - strlen(buf),
+               "\t%.5f" // V_bus   [V]
                "\t%.5f" // V_shunt [mV]
-               "\t%.5f" // I [mA]
-               "\t%.0f" // R [Ohm]
-               //"\t%.1f 'C"  // T die
+               "\t%.5f" // I       [mA]
+               "\t%.0f" // R       [Ohm]
+               // "\t%.1f" // T die   ['C]
                ,
-               V, V_shunt, I, R //, T_die
+               V_bus, V_shunt, I, R //, T_die
       );
     }
 
