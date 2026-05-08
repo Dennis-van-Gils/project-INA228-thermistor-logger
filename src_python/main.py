@@ -205,16 +205,18 @@ class MainWindow(QtWid.QWidget):
             "font-size": "20pt" if USE_LARGER_TEXT else "10pt",
         }
 
-        self.pi_resistance: pg.PlotItem = self.gw.addPlot(row=0, col=0)  # type: ignore
-        self.pi_resistance.setLabel("left", text="resistance : R (Ohm)", **p)
-        self.pi_resistance.enableAutoRange(axis="y")  # type: ignore
+        self.pi_R: pg.PlotItem = self.gw.addPlot(row=0, col=0)  # type: ignore
+        """PlotItem for `Resistance: R`"""
+        self.pi_R.setLabel("left", text="resistance : R (Ohm)", **p)
+        self.pi_R.enableAutoRange(axis="y")  # type: ignore
 
-        self.pi_current: pg.PlotItem = self.gw.addPlot(row=1, col=0)  # type: ignore
-        self.pi_current.setLabel("left", text="current : I (A)", **p)
-        self.pi_current.enableAutoRange(axis="y")  # type: ignore
+        self.pi_I: pg.PlotItem = self.gw.addPlot(row=1, col=0)  # type: ignore
+        """PlotItem for `Current: I`"""
+        self.pi_I.setLabel("left", text="current : I (A)", **p)
+        self.pi_I.enableAutoRange(axis="y")  # type: ignore
 
-        self.pi_all = [self.pi_resistance, self.pi_current]
-        # List of all PlotItems
+        self.pi_all = [self.pi_R, self.pi_I]
+        """List of all PlotItems"""
 
         for plot_item in self.pi_all:
             plot_item.setClipToView(True)
@@ -244,66 +246,58 @@ class MainWindow(QtWid.QWidget):
         # fmt: on
 
         self.tscurves_R: list[ThreadSafeCurve] = []
-        """List of all ThreadSafeCurves for plotting the resistance [Ohm]"""
+        """List of all ThreadSafeCurves `Resistance: R`"""
 
         self.tscurves_R.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_resistance.plot(
-                    pen=pen_1, name="Sensor #1"
-                ),
+                linked_curve=self.pi_R.plot(pen=pen_1, name="Sensor #1"),
             )
         )
         self.tscurves_R.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_resistance.plot(
-                    pen=pen_2, name="Sensor #2"
-                ),
+                linked_curve=self.pi_R.plot(pen=pen_2, name="Sensor #2"),
             )
         )
         self.tscurves_R.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_resistance.plot(
-                    pen=pen_3, name="Sensor #3"
-                ),
+                linked_curve=self.pi_R.plot(pen=pen_3, name="Sensor #3"),
             )
         )
         self.tscurves_R.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_resistance.plot(
-                    pen=pen_4, name="Sensor #4"
-                ),
+                linked_curve=self.pi_R.plot(pen=pen_4, name="Sensor #4"),
             )
         )
 
         self.tscurves_I: list[ThreadSafeCurve] = []
-        """List of all ThreadSafeCurves for plotting the current [A]"""
+        """List of all ThreadSafeCurves `Current: I`"""
 
         self.tscurves_I.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_current.plot(pen=pen_1, name="Sensor #1"),
+                linked_curve=self.pi_I.plot(pen=pen_1, name="Sensor #1"),
             )
         )
         self.tscurves_I.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_current.plot(pen=pen_2, name="Sensor #2"),
+                linked_curve=self.pi_I.plot(pen=pen_2, name="Sensor #2"),
             )
         )
         self.tscurves_I.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_current.plot(pen=pen_3, name="Sensor #3"),
+                linked_curve=self.pi_I.plot(pen=pen_3, name="Sensor #3"),
             )
         )
         self.tscurves_I.append(
             HistoryChartCurve(
                 capacity=CHART_CAPACITY,
-                linked_curve=self.pi_current.plot(pen=pen_4, name="Sensor #4"),
+                linked_curve=self.pi_I.plot(pen=pen_4, name="Sensor #4"),
             )
         )
 
