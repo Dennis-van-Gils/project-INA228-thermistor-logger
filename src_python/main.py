@@ -442,11 +442,11 @@ class MainWindow(QtWid.QWidget):
     # --------------------------------------------------------------------------
 
     def link_legend_to_tscurves_R(self):
-        """Legend currently only hides/shows the power curves. I'd like to have
-        the energy curves follow the visibility of the power curves. We have to
-        add them in manually, hence this method."""
+        """Legend currently only hides/shows the resistance curves. I'd like to
+        have the other curves follow this visibility. We have to add them in
+        manually, hence this method."""
         for idx, tscurve_R in enumerate(self.tscurves_R):
-            self.tscurves_R[idx].setVisible(tscurve_R.isVisible())
+            self.tscurves_I[idx].setVisible(tscurve_R.isVisible())
 
     @Slot(bool)
     def process_qpbt_running(self, state: bool):
