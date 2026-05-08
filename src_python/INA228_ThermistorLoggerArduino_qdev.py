@@ -8,7 +8,7 @@ __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
 __date__ = "07-05-2026"
-__version__ = "0.1"
+__version__ = "1.0"
 # pylint: disable=missing-docstring
 
 from typing import Callable
@@ -44,7 +44,13 @@ class INA228_ThermistorLoggerArduino_qdev(QDeviceIO):
     # --------------------------------------------------------------------------
 
     def turn_on(self):
+        """Send instruction to the Arduino to turn on its continuous data
+        reporting of all INA228 sensor data over the serial/wifi stream.
+        """
         self.send(self.dev.turn_on)
 
     def turn_off(self):
+        """Send instruction to the Arduino to turn off its continuous data
+        reporting of all INA228 sensor data over the serial/wifi stream.
+        """
         self.send(self.dev.turn_off)

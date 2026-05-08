@@ -8,8 +8,9 @@ __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
 __date__ = "07-05-2026"
-__version__ = "0.1"
-# pylint: disable=missing-docstring
+__version__ = "1.0"
+# pylint: disable=missing-function-docstring, too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 
 import serial
 
@@ -32,23 +33,29 @@ class INA228_ThermistorLoggerArduino(Arduino):
         def __init__(self, capacity: int, address: str):
             self.capacity = capacity
             """Ring buffer capacity"""
+
             self.address = address
             """Sensor address as hex string"""
 
             self.time = RingBuffer(capacity)
             """Time stamp [s]"""
+
             self.V_bus = RingBuffer(capacity)
             """Bus voltage [V]"""
+
             self.V_shunt = RingBuffer(capacity)
             """Shunt voltage [V]"""
+
             self.I = RingBuffer(capacity)
             """Current [A]"""
+
             self.R = RingBuffer(capacity)
             """Derived resistance [Ohm]"""
+
             self.T_die = RingBuffer(capacity)
             """Die temperature ['C]"""
 
-            self._ringbuffers = [
+            self._ring_buffers = [
                 self.time,
                 self.V_bus,
                 self.V_shunt,
@@ -56,16 +63,16 @@ class INA228_ThermistorLoggerArduino(Arduino):
                 self.R,
                 self.T_die,
             ]
-            """List of all ringbuffers in the class"""
+            """List of all ring buffers in the class"""
 
         def clear(self):
-            for rb in self._ringbuffers:
+            for rb in self._ring_buffers:
                 rb.clear()
 
     class State:
         """Container for the measurement values of all INA228 sensors.
 
-        Method `begin()` must be called to populate all INA228 sensors.
+        Method `begin()` must be called to populate member `INA228_sensors`.
         """
 
         def __init__(self, capacity: int):
@@ -107,6 +114,15 @@ class INA228_ThermistorLoggerArduino(Arduino):
         self.serial_settings["timeout"] = 4
 
     def begin(self) -> bool:
+        """Query the Arduino for the addresses of all connected INA228 sensors,
+        and populate the `state.INA_sensors` member accordingly.
+
+        This method must be called once after a connection has been made to
+        the Arduino.
+
+        Returns:
+            True if successful, False otherwise.
+        """
         if self.query_sensor_addresses():
             for address in self.state.sensor_addresses:
                 self.state.INA228_sensors.append(
@@ -124,6 +140,13 @@ class INA228_ThermistorLoggerArduino(Arduino):
     # --------------------------------------------------------------------------
 
     def query_sensor_addresses(self) -> bool:
+        """Query the Arduino for the addresses of all connected INA228 sensors.
+        The reply will get parsed and stored in members `state.sensor_addresses`
+        and `state.N_sensors`.
+
+        Returns:
+            True if successful, False otherwise.
+        """
         success, reply = self.query("addr?")
 
         if success and isinstance(reply, str):
@@ -140,9 +163,21 @@ class INA228_ThermistorLoggerArduino(Arduino):
         return False
 
     def turn_on(self) -> bool:
+        """Send instruction to the Arduino to turn on its continuous data
+        reporting of all INA228 sensor data over the serial/wifi stream.
+
+        Returns:
+            True if successful, False otherwise.
+        """
         return self.write("on")
 
     def turn_off(self) -> bool:
+        """Send instruction to the Arduino to turn off its continuous data
+        reporting of all INA228 sensor data over the serial/wifi stream.
+
+        Returns:
+            True if successful, False otherwise.
+        """
         return self.write("off")
 
     # --------------------------------------------------------------------------
@@ -153,7 +188,8 @@ class INA228_ThermistorLoggerArduino(Arduino):
         """Parse the ASCII string `line` as received from the Arduino into
         separate variables and store these into the `state` ring buffers.
 
-        Returns True when successful, False otherwise.
+        Returns:
+            True when successful, False otherwise.
         """
         parts = line.strip("\n").split("\t")
         N_FIELDS = 4
@@ -187,7 +223,8 @@ class INA228_ThermistorLoggerArduino(Arduino):
         This method is blocking until we received enough data to fill up the
         ring buffers with all new data, or until communication timed out.
 
-        Returns the number of newly appended data rows.
+        Returns:
+            The number of newly appended data rows.
         """
 
         new_rows_count = 0
