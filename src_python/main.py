@@ -9,7 +9,7 @@ __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
 __date__ = "07-05-2026"
-__version__ = "0.1"
+__version__ = "1.0"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
 # pylint: disable=multiple-statements
 
@@ -103,6 +103,7 @@ class MainWindow(QtWid.QWidget):
         self.qdev = qdev
         self.qdev.signal_DAQ_updated.connect(self.update_GUI)
         self.qlog = qlog
+        self.INA228_sensors = self.qdev.dev.state.INA228_sensors  # Shorthand
 
         self.do_update_readings_GUI = True
         """Update the GUI elements corresponding to the Arduino readings, like
@@ -206,13 +207,13 @@ class MainWindow(QtWid.QWidget):
         }
 
         self.pi_R: pg.PlotItem = self.gw.addPlot(row=0, col=0)  # type: ignore
-        """PlotItem for `Resistance: R`"""
-        self.pi_R.setLabel("left", text="resistance : R (Ohm)", **p)
+        """PlotItem `Resistance: R`"""
+        self.pi_R.setLabel("left", text="R (\u03a9)", **p)
         self.pi_R.enableAutoRange(axis="y")  # type: ignore
 
         self.pi_I: pg.PlotItem = self.gw.addPlot(row=1, col=0)  # type: ignore
-        """PlotItem for `Current: I`"""
-        self.pi_I.setLabel("left", text="current : I (A)", **p)
+        """PlotItem `Current: I`"""
+        self.pi_I.setLabel("left", text="I (A)", **p)
         self.pi_I.enableAutoRange(axis="y")  # type: ignore
 
         self.pi_all = [self.pi_R, self.pi_I]
@@ -243,66 +244,38 @@ class MainWindow(QtWid.QWidget):
         pen_2 = pg.mkPen(color=[ 40, 250,  40], width=pen_width)
         pen_3 = pg.mkPen(color=[  0, 255, 255], width=pen_width)
         pen_4 = pg.mkPen(color=[254,   0, 154], width=pen_width)
+        pens = [pen_1, pen_2, pen_3, pen_4]
         # fmt: on
 
         self.tscurves_R: list[ThreadSafeCurve] = []
-        """List of all ThreadSafeCurves `Resistance: R`"""
-
-        self.tscurves_R.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_R.plot(pen=pen_1, name="Sensor #1"),
-            )
-        )
-        self.tscurves_R.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_R.plot(pen=pen_2, name="Sensor #2"),
-            )
-        )
-        self.tscurves_R.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_R.plot(pen=pen_3, name="Sensor #3"),
-            )
-        )
-        self.tscurves_R.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_R.plot(pen=pen_4, name="Sensor #4"),
-            )
-        )
+        """List of ThreadSafeCurves `Resistance: R`"""
 
         self.tscurves_I: list[ThreadSafeCurve] = []
-        """List of all ThreadSafeCurves `Current: I`"""
+        """List of ThreadSafeCurves `Current: I`"""
 
-        self.tscurves_I.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_I.plot(pen=pen_1, name="Sensor #1"),
+        for idx, sensor in enumerate(self.INA228_sensors):
+            self.tscurves_R.append(
+                HistoryChartCurve(
+                    capacity=CHART_CAPACITY,
+                    linked_curve=self.pi_R.plot(
+                        pen=pens[idx],
+                        name=f"Sensor {sensor.address}",
+                    ),
+                )
             )
-        )
-        self.tscurves_I.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_I.plot(pen=pen_2, name="Sensor #2"),
+
+            self.tscurves_I.append(
+                HistoryChartCurve(
+                    capacity=CHART_CAPACITY,
+                    linked_curve=self.pi_I.plot(
+                        pen=pens[idx],
+                        name=f"Sensor {sensor.address}",
+                    ),
+                )
             )
-        )
-        self.tscurves_I.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_I.plot(pen=pen_3, name="Sensor #3"),
-            )
-        )
-        self.tscurves_I.append(
-            HistoryChartCurve(
-                capacity=CHART_CAPACITY,
-                linked_curve=self.pi_I.plot(pen=pen_4, name="Sensor #4"),
-            )
-        )
 
         self.tscurves_all = self.tscurves_R + self.tscurves_I
-        # List of all ThreadSafeCurves
+        """List of all ThreadSafeCurves"""
 
         # -------------------------
         #   Legend
@@ -356,14 +329,19 @@ class MainWindow(QtWid.QWidget):
         # 'Readings'
         p = {"readOnly": True, "maximumWidth": 112 if USE_LARGER_TEXT else 63}
         self.timestamp = QtWid.QLineEdit(**p)
-        self.R_1 = QtWid.QLineEdit(**p)
-        self.R_2 = QtWid.QLineEdit(**p)
-        self.R_3 = QtWid.QLineEdit(**p)
-        self.R_4 = QtWid.QLineEdit(**p)
-        self.I_1 = QtWid.QLineEdit(**p)
-        self.I_2 = QtWid.QLineEdit(**p)
-        self.I_3 = QtWid.QLineEdit(**p)
-        self.I_4 = QtWid.QLineEdit(**p)
+
+        self.qlins_R: list[QtWid.QLineEdit] = []
+        """List of all QLineEdits 'Resistance: R"""
+        self.qlins_I: list[QtWid.QLineEdit] = []
+        """List of all QLineEdits 'Current: I"""
+        self.qlins_V: list[QtWid.QLineEdit] = []
+        """List of all QLineEdits 'Voltage: V"""
+
+        for sensor in self.INA228_sensors:
+            self.qlins_R.append(QtWid.QLineEdit(**p))
+            self.qlins_I.append(QtWid.QLineEdit(**p))
+            self.qlins_V.append(QtWid.QLineEdit(**p))
+
         self.qpbt_running = controls.create_Toggle_button(
             "Running", checked=True
         )
@@ -375,29 +353,22 @@ class MainWindow(QtWid.QWidget):
         # fmt: off
         i = 0
         grid = QtWid.QGridLayout()
-        grid.addWidget(self.qpbt_running       , i, 0, 1, 3); i+=1
-        grid.addWidget(QtWid.QLabel("Time")    , i, 0)
-        grid.addWidget(self.timestamp          , i, 1)
-        grid.addWidget(QtWid.QLabel("sec")     , i, 2); i+=1
-
-        #grid.addWidget(QtWid.QLabel("#") , i, 0)
-        grid.addWidget(QtWid.QLabel("R (Ohm)") , i, 1)
-        grid.addWidget(QtWid.QLabel("I (mA)")  , i, 2); i+=1
-
-        grid.addWidget(QtWid.QLabel("#1")      , i, 0)
-        grid.addWidget(self.R_1                , i, 1)
-        grid.addWidget(self.I_1                , i, 2); i+=1
-        grid.addWidget(QtWid.QLabel("#2")      , i, 0)
-        grid.addWidget(self.R_2                , i, 1)
-        grid.addWidget(self.I_2                , i, 2); i+=1
-        grid.addWidget(QtWid.QLabel("#3")      , i, 0)
-        grid.addWidget(self.R_3                , i, 1)
-        grid.addWidget(self.I_3                , i, 2); i+=1
-        grid.addWidget(QtWid.QLabel("#4")      , i, 0)
-        grid.addWidget(self.R_4                , i, 1)
-        grid.addWidget(self.I_4                , i, 2); i+=1
-
         grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        grid.addWidget(self.qpbt_running         , i, 0, 1, 4); i+=1
+        grid.addWidget(QtWid.QLabel("Time")      , i, 0)
+        grid.addWidget(self.timestamp            , i, 1)
+        grid.addWidget(QtWid.QLabel("sec")       , i, 2); i+=1
+        grid.addWidget(QtWid.QLabel("")          , i, 0)
+        grid.addWidget(QtWid.QLabel("R (\u03a9)"), i, 1)
+        grid.addWidget(QtWid.QLabel("I (mA)")    , i, 2)
+        grid.addWidget(QtWid.QLabel("V (V)")     , i, 3); i+=1
+
+        for idx, sensor in enumerate(self.INA228_sensors):
+            grid.addWidget(QtWid.QLabel(sensor.address), i, 0)
+            grid.addWidget(self.qlins_R[idx]           , i, 1)
+            grid.addWidget(self.qlins_I[idx]           , i, 2)
+            grid.addWidget(self.qlins_V[idx]           , i, 3)
+            i+=1
         # fmt: on
 
         qgrp_readings = QtWid.QGroupBox("Readings")
@@ -408,12 +379,14 @@ class MainWindow(QtWid.QWidget):
         vbox.addWidget(
             self.qgrp_legend,
             stretch=0,
-            alignment=QtCore.Qt.AlignmentFlag.AlignTop,
+            alignment=QtCore.Qt.AlignmentFlag.AlignTop
+            | QtCore.Qt.AlignmentFlag.AlignLeft,
         )
         vbox.addWidget(
             qgrp_history,
             stretch=0,
-            alignment=QtCore.Qt.AlignmentFlag.AlignTop,
+            alignment=QtCore.Qt.AlignmentFlag.AlignTop
+            | QtCore.Qt.AlignmentFlag.AlignLeft,
         )
         vbox.addStretch(1)
 
@@ -435,10 +408,9 @@ class MainWindow(QtWid.QWidget):
     #   Handle controls
     # --------------------------------------------------------------------------
 
-    def link_legend_to_tscurves_R(self):
-        """Legend currently only hides/shows the resistance curves. I'd like to
-        have the other curves follow this visibility. We have to add them in
-        manually, hence this method."""
+    def update_legend_visibility(self):
+        """Legend initially only hides/shows the resistance curves. Make other
+        curves follow this visibility."""
         for idx, tscurve_R in enumerate(self.tscurves_R):
             self.tscurves_I[idx].setVisible(tscurve_R.isVisible())
 
@@ -466,18 +438,14 @@ class MainWindow(QtWid.QWidget):
             else ""
         )
 
-        self.link_legend_to_tscurves_R()
+        self.update_legend_visibility()
 
         if self.do_update_readings_GUI and state.INA228_sensors[0].time.is_full:
-            self.timestamp.setText(f"{state.INA228_sensors[0].time[0]:.1f}")
-            self.R_1.setText(f"{np.mean(state.INA228_sensors[0].R):.0f}")
-            self.R_2.setText(f"{np.mean(state.INA228_sensors[1].R):.0f}")
-            self.R_3.setText(f"{np.mean(state.INA228_sensors[2].R):.0f}")
-            self.R_4.setText(f"{np.mean(state.INA228_sensors[3].R):.0f}")
-            self.I_1.setText(f"{np.mean(state.INA228_sensors[0].I) * 1e3:.5f}")
-            self.I_2.setText(f"{np.mean(state.INA228_sensors[1].I) * 1e3:.5f}")
-            self.I_3.setText(f"{np.mean(state.INA228_sensors[2].I) * 1e3:.5f}")
-            self.I_4.setText(f"{np.mean(state.INA228_sensors[3].I) * 1e3:.5f}")
+            self.timestamp.setText(f"{self.INA228_sensors[0].time[0]:.1f}")
+            for idx, sensor in enumerate(self.INA228_sensors):
+                self.qlins_R[idx].setText(f"{np.mean(sensor.R):.0f}")
+                self.qlins_I[idx].setText(f"{np.mean(sensor.I) * 1e3:.5f}")
+                self.qlins_V[idx].setText(f"{np.mean(sensor.V_bus):.5f}")
 
             if DEBUG:
                 tprint("update_chart")
@@ -545,14 +513,9 @@ if __name__ == "__main__":
 
         # Add readings to chart history
         time = ard.state.INA228_sensors[0].time
-        window.tscurves_R[0].extendData(time, ard.state.INA228_sensors[0].R)
-        window.tscurves_R[1].extendData(time, ard.state.INA228_sensors[1].R)
-        window.tscurves_R[2].extendData(time, ard.state.INA228_sensors[2].R)
-        window.tscurves_R[3].extendData(time, ard.state.INA228_sensors[3].R)
-        window.tscurves_I[0].extendData(time, ard.state.INA228_sensors[0].I)
-        window.tscurves_I[1].extendData(time, ard.state.INA228_sensors[1].I)
-        window.tscurves_I[2].extendData(time, ard.state.INA228_sensors[2].I)
-        window.tscurves_I[3].extendData(time, ard.state.INA228_sensors[3].I)
+        for idx, sensor in enumerate(ard.state.INA228_sensors):
+            window.tscurves_R[idx].extendData(time, sensor.R)
+            window.tscurves_I[idx].extendData(time, sensor.I)
 
         # Add readings to the log
         log.update()
@@ -578,32 +541,25 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     def write_header_to_log():
-        log.write(
-            "time [s]\t"
-            "I_1 [A]\tR_1 [Ohm]\t"
-            "I_2 [A]\tR_2 [Ohm]\t"
-            "I_3 [A]\tR_3 [Ohm]\t"
-            "I_4 [A]\tR_4 [Ohm]\n"
-        )
+        log.write(f"Sensors: {ard.state.sensor_addresses}\n")
+        log.write("Time [s]")
+        for idx, _ in enumerate(ard.state.INA228_sensors):
+            i = idx + 1
+            log.write(f"\tR_{i} [\u03a9]\tI_{i} [A]\tV_{i} [V]")
+        log.write("\n")
 
     def write_data_to_log():
-        np_data = np.column_stack(
-            (
-                ard.state.INA228_sensors[0].time,
-                ard.state.INA228_sensors[0].I,
-                ard.state.INA228_sensors[0].R,
-                ard.state.INA228_sensors[1].I,
-                ard.state.INA228_sensors[1].R,
-                ard.state.INA228_sensors[2].I,
-                ard.state.INA228_sensors[2].R,
-                ard.state.INA228_sensors[3].I,
-                ard.state.INA228_sensors[3].R,
-            )
-        )
-        log.np_savetxt(
-            np_data,
-            "%.3f\t%.5e\t%.0f\t%.5e\t%.0f\t%.5e\t%.0f\t%.5e\t%.0f",
-        )
+        data = [ard.state.INA228_sensors[0].time]
+        fmts = "%.3f"
+
+        for sensor in ard.state.INA228_sensors:
+            data.append(sensor.R)
+            data.append(sensor.I)
+            data.append(sensor.V_bus)
+            fmts += "\t%.0f\t%.5e\t%.5f"
+
+        np_data = np.column_stack(data)
+        log.np_savetxt(np_data, fmts)
 
     log = FileLogger(
         write_header_function=write_header_to_log,
