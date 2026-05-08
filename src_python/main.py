@@ -23,6 +23,7 @@ from qtpy.QtCore import Slot  # type: ignore
 import psutil
 import numpy as np
 import pyqtgraph as pg
+import qtawesome as qta
 
 from dvg_debug_functions import tprint
 from dvg_pyqtgraph_threadsafe import (
@@ -533,6 +534,7 @@ if __name__ == "__main__":
     if qtpy.PYQT6 or qtpy.PYSIDE6:
         sys.argv += ["-platform", "windows:darkmode=0"]
     app = QtWid.QApplication(sys.argv)
+    app.setWindowIcon(qta.icon("mdi6.resistor", color="black"))
     app.setStyle("Fusion")
     if USE_LARGER_TEXT:
         app.setFont(QtGui.QFont(QtWid.QApplication.font().family(), 16))

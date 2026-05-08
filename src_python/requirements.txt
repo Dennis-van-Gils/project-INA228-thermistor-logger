@@ -4,6 +4,7 @@ numpy>=1.15,<3.0
 psutil
 pyopengl~=3.1
 pyside6
+qtawesome
 qtpy
 
 dvg-debug-functions~=2.5
