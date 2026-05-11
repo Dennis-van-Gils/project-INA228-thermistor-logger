@@ -34,6 +34,9 @@ from dvg_pyqtgraph_threadsafe import (
 )
 from dvg_pyqt_filelogger import FileLogger
 import dvg_pyqt_controls as controls
+from dvg_ringbuffer import RingBuffer
+from dvg_devices.Picotech_PT104_protocol_UDP import Picotech_PT104
+from dvg_devices.Picotech_PT104_qdev import Picotech_PT104_qdev
 
 from INA228_ThermistorLoggerArduino import INA228_ThermistorLoggerArduino
 from INA228_ThermistorLoggerArduino_qdev import (
@@ -94,6 +97,7 @@ class MainWindow(QtWid.QWidget):
     def __init__(
         self,
         qdev: INA228_ThermistorLoggerArduino_qdev,
+        qdev_pt104: Picotech_PT104_qdev,
         qlog: FileLogger,
         parent=None,
         **kwargs,
@@ -102,6 +106,7 @@ class MainWindow(QtWid.QWidget):
 
         self.qdev = qdev
         self.qdev.signal_DAQ_updated.connect(self.update_GUI)
+        self.qdev_pt104 = qdev_pt104
         self.qlog = qlog
         self.INA228_sensors = self.qdev.dev.state.INA228_sensors  # Shorthand
 
@@ -211,12 +216,12 @@ class MainWindow(QtWid.QWidget):
         self.pi_R.setLabel("left", text="R (\u03a9)", **p)
         self.pi_R.enableAutoRange(axis="y")  # type: ignore
 
-        self.pi_I: pg.PlotItem = self.gw.addPlot(row=1, col=0)  # type: ignore
-        """PlotItem `Current: I`"""
-        self.pi_I.setLabel("left", text="I (A)", **p)
-        self.pi_I.enableAutoRange(axis="y")  # type: ignore
+        self.pi_T: pg.PlotItem = self.gw.addPlot(row=1, col=0)  # type: ignore
+        """PlotItem `Temperature: T`"""
+        self.pi_T.setLabel("left", text="T (\u00b0C)", **p)
+        self.pi_T.enableAutoRange(axis="y")  # type: ignore
 
-        self.pi_all = [self.pi_R, self.pi_I]
+        self.pi_all = [self.pi_R, self.pi_T]
         """List of all PlotItems"""
 
         for plot_item in self.pi_all:
@@ -244,14 +249,15 @@ class MainWindow(QtWid.QWidget):
         pen_2 = pg.mkPen(color=[ 40, 250,  40], width=pen_width)
         pen_3 = pg.mkPen(color=[  0, 255, 255], width=pen_width)
         pen_4 = pg.mkPen(color=[254,   0, 154], width=pen_width)
-        pens = [pen_1, pen_2, pen_3, pen_4]
+        pen_5 = pg.mkPen(color=[255, 255, 255], width=pen_width)
+        pens = [pen_1, pen_2, pen_3, pen_4, pen_5]
         # fmt: on
 
         self.tscurves_R: list[ThreadSafeCurve] = []
         """List of ThreadSafeCurves `Resistance: R`"""
 
-        self.tscurves_I: list[ThreadSafeCurve] = []
-        """List of ThreadSafeCurves `Current: I`"""
+        self.tscurves_T: list[ThreadSafeCurve] = []
+        """List of ThreadSafeCurves `Temperature: T`"""
 
         for idx, sensor in enumerate(self.INA228_sensors):
             self.tscurves_R.append(
@@ -264,17 +270,29 @@ class MainWindow(QtWid.QWidget):
                 )
             )
 
-            self.tscurves_I.append(
+            """
+            self.tscurves_T.append(
                 HistoryChartCurve(
                     capacity=CHART_CAPACITY,
-                    linked_curve=self.pi_I.plot(
+                    linked_curve=self.pi_T.plot(
                         pen=pens[idx],
                         name=f"Sensor {sensor.address}",
                     ),
                 )
             )
+            """
 
-        self.tscurves_all = self.tscurves_R + self.tscurves_I
+        self.tscurves_T.append(
+            HistoryChartCurve(
+                capacity=CHART_CAPACITY,
+                linked_curve=self.pi_T.plot(
+                    pen=pens[4],
+                    name="PT-104",
+                ),
+            )
+        )
+
+        self.tscurves_all = self.tscurves_R + self.tscurves_T
         """List of all ThreadSafeCurves"""
 
         # -------------------------
@@ -298,12 +316,6 @@ class MainWindow(QtWid.QWidget):
             linked_curves=self.tscurves_all,
             presets=[
                 {
-                    "button_label": "0:30",
-                    "x_axis_label": "history (sec)",
-                    "x_axis_divisor": 1,
-                    "x_axis_range": (-30, 0),
-                },
-                {
                     "button_label": "1:00",
                     "x_axis_label": "history (sec)",
                     "x_axis_divisor": 1,
@@ -314,6 +326,24 @@ class MainWindow(QtWid.QWidget):
                     "x_axis_label": "history (min)",
                     "x_axis_divisor": 60,
                     "x_axis_range": (-5, 0),
+                },
+                {
+                    "button_label": "10:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-10, 0),
+                },
+                {
+                    "button_label": "30:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-30, 0),
+                },
+                {
+                    "button_label": "60:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-60, 0),
                 },
             ],
         )
@@ -374,20 +404,25 @@ class MainWindow(QtWid.QWidget):
         qgrp_readings = QtWid.QGroupBox("Readings")
         qgrp_readings.setLayout(grid)
 
-        vbox = QtWid.QVBoxLayout()
-        vbox.addWidget(qgrp_readings)
-        vbox.addWidget(
-            self.qgrp_legend,
-            stretch=0,
-            alignment=QtCore.Qt.AlignmentFlag.AlignTop
-            | QtCore.Qt.AlignmentFlag.AlignLeft,
-        )
-        vbox.addWidget(
+        hbox = QtWid.QHBoxLayout()
+        hbox.addWidget(
             qgrp_history,
             stretch=0,
             alignment=QtCore.Qt.AlignmentFlag.AlignTop
             | QtCore.Qt.AlignmentFlag.AlignLeft,
         )
+        hbox.addWidget(
+            self.qgrp_legend,
+            stretch=0,
+            alignment=QtCore.Qt.AlignmentFlag.AlignTop
+            | QtCore.Qt.AlignmentFlag.AlignLeft,
+        )
+        hbox.addStretch(1)
+
+        vbox = QtWid.QVBoxLayout()
+        vbox.addWidget(qgrp_readings)
+        vbox.addLayout(hbox, 0)
+        vbox.addWidget(qdev_pt104.qgrp)  # GUI Picotech PT-104
         vbox.addStretch(1)
 
         # Round up bottom frame
@@ -412,7 +447,7 @@ class MainWindow(QtWid.QWidget):
         """Legend initially only hides/shows the resistance curves. Make other
         curves follow this visibility."""
         for idx, tscurve_R in enumerate(self.tscurves_R):
-            self.tscurves_I[idx].setVisible(tscurve_R.isVisible())
+            self.tscurves_T[idx].setVisible(tscurve_R.isVisible())
 
     @Slot(bool)
     def process_qpbt_running(self, state: bool):
@@ -438,7 +473,7 @@ class MainWindow(QtWid.QWidget):
             else ""
         )
 
-        self.update_legend_visibility()
+        # self.update_legend_visibility()
 
         if self.do_update_readings_GUI and state.INA228_sensors[0].time.is_full:
             self.timestamp.setText(f"{self.INA228_sensors[0].time[0]:.1f}")
@@ -486,6 +521,22 @@ if __name__ == "__main__":
         ard.turn_on()
 
     # --------------------------------------------------------------------------
+    #   Connect to (optional) Picotech PT-104
+    # --------------------------------------------------------------------------
+
+    # fmt: off
+    IP_ADDRESS    = "10.10.100.2"
+    PORT          = 1234
+    ENA_channels  = [1, 1, 1, 1]
+    gain_channels = [1, 1, 1, 1]
+    # fmt: on
+
+    pt104 = Picotech_PT104(name="PT104")
+    if pt104.connect(IP_ADDRESS, PORT):
+        pt104.begin()
+        pt104.start_conversion(ENA_channels, gain_channels)
+
+    # --------------------------------------------------------------------------
     #   Create application
     # --------------------------------------------------------------------------
 
@@ -515,7 +566,17 @@ if __name__ == "__main__":
         time = ard.state.INA228_sensors[0].time
         for idx, sensor in enumerate(ard.state.INA228_sensors):
             window.tscurves_R[idx].extendData(time, sensor.R)
-            window.tscurves_I[idx].extendData(time, sensor.I)
+            # window.tscurves_T[idx].extendData(time, sensor.T)
+
+        # NOTE: The PT-104 has a different DAQ rate than the thermistor
+        # read-outs. As long as both are near similar time intervals, we can use
+        # the following simplified scheme where we (wrongly) enforce identical
+        # timestamps. This approach can fail when the ringbuffer capacity of the
+        # thermistors is set to larger than 1 or when the DAQ rates are
+        # differing by more than a factor of 2. In that case, a more elaborate
+        # scheme using 'sample & hold' interpolation or data decimation is
+        # necessary.
+        window.tscurves_T[0].appendData(time[0], pt104.state.ch1_T)
 
         # Add readings to the log
         log.update()
@@ -537,12 +598,23 @@ if __name__ == "__main__":
     )
 
     # --------------------------------------------------------------------------
+    #   Set up multithreaded communication with the PT104
+    # --------------------------------------------------------------------------
+
+    pt104_qdev = Picotech_PT104_qdev(
+        dev=pt104,
+        DAQ_interval_ms=1000,
+        debug=DEBUG,
+    )
+    pt104_qdev.start()
+
+    # --------------------------------------------------------------------------
     #   File logger
     # --------------------------------------------------------------------------
 
     def write_header_to_log():
         log.write(f"Sensors: {ard.state.sensor_addresses}\n")
-        log.write("Time [s]")
+        log.write("Time [s]\tPT-104 [\u00b0C]")
         for idx, _ in enumerate(ard.state.INA228_sensors):
             i = idx + 1
             log.write(f"\tR_{i} [\u03a9]\tI_{i} [A]\tV_{i} [V]")
@@ -551,6 +623,19 @@ if __name__ == "__main__":
     def write_data_to_log():
         data = [ard.state.INA228_sensors[0].time]
         fmts = "%.3f"
+
+        # NOTE: The PT-104 has a different DAQ rate than the thermistor
+        # read-outs. As long as both are near similar time intervals, we can use
+        # the following simplified scheme where we (wrongly) enforce identical
+        # timestamps. This approach can fail when the ring buffer capacity of
+        # the thermistors is set to larger than 1 or when the DAQ rates are
+        # differing by more than a factor of 2. In that case, a more elaborate
+        # scheme using 'sample & hold' interpolation or data decimation is
+        # necessary.
+        ring_buffer_T = RingBuffer(ard.state.capacity)
+        ring_buffer_T.extend([pt104.state.ch1_T] * ard.state.capacity)
+        data.append(ring_buffer_T)
+        fmts += "\t%.3f"
 
         for sensor in ard.state.INA228_sensors:
             data.append(sensor.R)
@@ -603,6 +688,10 @@ if __name__ == "__main__":
         ard.turn_off()
         ard.close()
 
+        if pt104.is_alive:
+            pt104_qdev.quit()
+            pt104.close()
+
     def about_to_quit():
         print("\nAbout to quit")
         stop_running()
@@ -611,7 +700,7 @@ if __name__ == "__main__":
     #   Start the main GUI event loop
     # --------------------------------------------------------------------------
 
-    window = MainWindow(qdev=ard_qdev, qlog=log)
+    window = MainWindow(qdev=ard_qdev, qdev_pt104=pt104_qdev, qlog=log)
     window.show()
 
     ard_qdev.signal_connection_lost.connect(notify_connection_lost)
