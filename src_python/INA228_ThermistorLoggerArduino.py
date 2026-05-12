@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Provides class `INA228_ThermistorLoggerArduino` to manage serial
-communication with an Arduino programmed as an INA228 thermistor logger.
+communication with an Arduino programmed as an INA228 Thermistor Logger.
 """
 
 __author__ = "Dennis van Gils"
@@ -25,7 +25,7 @@ from dvg_ringbuffer import RingBuffer
 
 class INA228_ThermistorLoggerArduino(Arduino):
     """Manages serial communication with an Arduino programmed as an INA228
-    thermistor logger."""
+    Thermistor Logger."""
 
     class INA228_Sensor:
         """Container for the measurement values of a single INA228 sensor."""
@@ -98,7 +98,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
         self,
         name="Ard",
         long_name="Arduino",
-        connect_to_specific_ID="INA228 thermistor logger",
+        connect_to_specific_ID="INA228 Thermistor Logger",
         ring_buffer_capacity: int = 1,
     ):
         super().__init__(

@@ -4,7 +4,7 @@
  * @version https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger
  * @date    21-04-2026
  *
- * @brief   Firmware for the INA228 thermistor logger.
+ * @brief   Firmware for the INA228 Thermistor Logger.
  *
  * Hardware
  * --------
@@ -250,7 +250,7 @@ void loop() {
     if (cmd_pending) {
 
       if (strcmp(str_cmd, "id?") == 0) {
-        println("Arduino, INA228 thermistor logger");
+        println("Arduino, INA228 Thermistor Logger");
         DAQ_running = false;
 
       } else if (strcmp(str_cmd, "addr?") == 0) {

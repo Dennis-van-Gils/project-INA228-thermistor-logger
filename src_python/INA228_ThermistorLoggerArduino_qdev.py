@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """PyQt/PySide module to provide multithreaded communication and periodical data
-acquisition for an Arduino programmed as an INA228 thermistor logger.
+acquisition for an Arduino programmed as an INA228 Thermistor Logger.
 """
 
 __author__ = "Dennis van Gils"
@@ -19,7 +19,7 @@ from INA228_ThermistorLoggerArduino import INA228_ThermistorLoggerArduino
 
 class INA228_ThermistorLoggerArduino_qdev(QDeviceIO):
     """Manages multithreaded communication and periodical data acquisition for
-    an Arduino programmed as an INA228 thermistor logger."""
+    an Arduino programmed as an INA228 Thermistor Logger."""
 
     def __init__(
         self,

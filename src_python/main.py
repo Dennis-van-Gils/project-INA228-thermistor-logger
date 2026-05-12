@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Main control program and graphical user interface for an Arduino programmed
-as an INA288 thermistor logger. It will log and plot in real-time the voltage,
+as an INA228 Thermistor Logger. It will log and plot in real-time the voltage,
 current and resistance values of each thermistor.
 """
 
@@ -114,7 +114,7 @@ class MainWindow(QtWid.QWidget):
         """Update the GUI elements corresponding to the Arduino readings, like
         textboxes and charts?"""
 
-        self.setWindowTitle("INA228 thermistor logger")
+        self.setWindowTitle("INA228 Thermistor Logger")
         self.setGeometry(40, 60, 960, 660)
         self.setStyleSheet(controls.SS_TEXTBOX_READ_ONLY + controls.SS_GROUP)
 
@@ -138,7 +138,7 @@ class MainWindow(QtWid.QWidget):
         vbox_left.addWidget(self.qlbl_DAQ_rate_2, stretch=0)
 
         # Middle box
-        self.qlbl_title = QtWid.QLabel("INA228 thermistor logger")
+        self.qlbl_title = QtWid.QLabel("INA228 Thermistor Logger")
         self.qlbl_title.setFont(
             QtGui.QFont(
                 "Palatino",
