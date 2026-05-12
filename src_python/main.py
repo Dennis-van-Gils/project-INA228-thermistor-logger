@@ -38,10 +38,11 @@ from dvg_ringbuffer import RingBuffer
 from dvg_devices.Picotech_PT104_protocol_UDP import Picotech_PT104
 from dvg_devices.Picotech_PT104_qdev import Picotech_PT104_qdev
 
-from ThermistorLoggerArduino import ThermistorLoggerArduino
-from ThermistorLoggerArduino_qdev import (
-    ThermistorLoggerArduino_qdev,
+from ThermistorLoggerArduino import (
+    ThermistorLoggerSerial,
+    ThermistorLoggerTelnet,
 )
+from ThermistorLoggerArduino_qdev import ThermistorLoggerArduino_qdev
 
 # Constants
 CHART_CAPACITY = int(1e4)  # [number of points]
@@ -509,8 +510,11 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = ThermistorLoggerArduino(ring_buffer_capacity=1)
-    ard.auto_connect()
+    # ard = ThermistorLoggerSerial(ring_buffer_capacity=1)
+    # ard.auto_connect()
+
+    ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
+    ard.connect(host="wlan069093.wireless.utwente.nl", port=23)
 
     if not ard.is_alive:
         print("\nCheck connection and try resetting the Arduino.")
@@ -557,7 +561,7 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     def DAQ_function() -> bool:
-        new_rows_count = ard.listen_to_Arduino()
+        new_rows_count = ard.listen_to_device()
 
         if new_rows_count != ard.state.capacity:
             return False

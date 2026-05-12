@@ -1,7 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Provides class `ThermistorLoggerArduino` to manage serial communication with
-an Arduino programmed as a Thermistor Logger.
+"""Provides classes to manage communication with an Arduino programmed as a
+Thermistor Logger. Choose either one.
+
+Classes:
+    `ThermistorLoggerSerial`: Communication via serial transport.
+
+        Usage ::
+
+            ard = ThermistorLoggerSerial(ring_buffer_capacity=1)
+            ard.auto_connect()
+            ard.begin()
+
+    `ThermistorLoggerTelnet`: Communication via telnet transport.
+
+        Usage ::
+
+            ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
+            ard.connect(host="10.10.100.2", port=23)
+            ard.begin()
 """
 
 __author__ = "Dennis van Gils"
@@ -13,19 +30,27 @@ __version__ = "1.0"
 # pylint: disable=too-few-public-methods
 
 import serial
+from abc import ABC, abstractmethod
+from typing import Union
 
-from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_debug_functions import print_fancy_traceback as pft
 from dvg_ringbuffer import RingBuffer
 
+from dvg_devices.Arduino_protocol_serial import Arduino
+from TelnetServerDevice import TelnetServerDevice
+
 # ------------------------------------------------------------------------------
-#   ThermistorLoggerArduino
+#   ThermistorLoggerBase
 # ------------------------------------------------------------------------------
 
 
-class ThermistorLoggerArduino(Arduino):
-    """Manages serial communication with an Arduino programmed as a Thermistor
-    Logger."""
+class ThermistorLoggerBase(ABC):
+    """Manages communication with an Arduino programmed as a Thermistor Logger.
+    Transport-agnostic framework.
+
+    Derive this class with a transport backend that implements `query()`,
+    `write()` and `readline()`.
+    """
 
     class INA228_Sensor:
         """Container for the measurement values of a single INA228 sensor to
@@ -73,7 +98,7 @@ class ThermistorLoggerArduino(Arduino):
     class State:
         """Container for the measurement values of all thermistors.
 
-        Method `begin()` must be called to populate member `INA228_sensors`.
+        Method `begin()` must be called to populate member `sensors`.
         """
 
         def __init__(self, capacity: int):
@@ -86,35 +111,37 @@ class ThermistorLoggerArduino(Arduino):
             self.N_sensors = 0
             """Number of INA228 sensors connected to the Arduino"""
 
-            self.sensors: list[ThermistorLoggerArduino.INA228_Sensor] = []
+            self.sensors: list[ThermistorLoggerBase.INA228_Sensor] = []
             """List of all INA228 sensors, each containing thermistor data."""
 
         def clear(self):
             for sensor in self.sensors:
                 sensor.clear()
 
-    def __init__(
-        self,
-        name="Ard",
-        long_name="Arduino",
-        connect_to_specific_ID="Thermistor Logger",
-        ring_buffer_capacity: int = 1,
-    ):
-        super().__init__(
-            name=name,
-            long_name=long_name,
-            connect_to_specific_ID=connect_to_specific_ID,
-        )
-
-        # Container for the measurement values of all INA228 sensors
+    def __init__(self, ring_buffer_capacity: int = 1):
+        # Container for the measurement values of all thermistors
         self.state = self.State(capacity=ring_buffer_capacity)
 
-        # Increase the read timeout from 2 sec (default) to 4 sec
-        self.serial_settings["timeout"] = 4
+    @abstractmethod
+    def query(self, msg: str) -> tuple[bool, Union[str, bytes, None]]:
+        """Send a message to the device over the underlying transport backend
+        and subsequently read the reply."""
+
+    @abstractmethod
+    def write(self, msg: str) -> bool:
+        """Send a message to the device over the underlying transport backend."""
+
+    @abstractmethod
+    def readline(
+        self, raises_on_timeout: bool
+    ) -> tuple[bool, Union[str, bytes, None]]:
+        """Listen to the device over the underlying transport backend for
+        incoming data. This method is blocking and returns when a full line has
+        been received or when the read timeout has expired."""
 
     def begin(self) -> bool:
         """Query the Arduino for the addresses of all connected INA228 sensors,
-        and populate the `state.INA_sensors` member accordingly.
+        and populate the `state.sensors` member accordingly.
 
         This method must be called once after a connection has been made to
         the Arduino.
@@ -163,7 +190,8 @@ class ThermistorLoggerArduino(Arduino):
 
     def turn_on(self) -> bool:
         """Send instruction to the Arduino to turn on its continuous data
-        reporting of all thermistor data over the serial/wifi stream.
+        reporting of all thermistor data over the transport backend (serial or
+        telnet).
 
         Returns:
             True if successful, False otherwise.
@@ -172,7 +200,8 @@ class ThermistorLoggerArduino(Arduino):
 
     def turn_off(self) -> bool:
         """Send instruction to the Arduino to turn off its continuous data
-        reporting of all thermistor data over the serial/wifi stream.
+        reporting of all thermistor data over the transport backend (serial or
+        telnet).
 
         Returns:
             True if successful, False otherwise.
@@ -211,13 +240,13 @@ class ThermistorLoggerArduino(Arduino):
         return True
 
     # --------------------------------------------------------------------------
-    #   listen_to_Arduino
+    #   listen_to_device
     # --------------------------------------------------------------------------
 
-    def listen_to_Arduino(self) -> int:
-        """Listen to the Arduino for new readings being broadcast over the
-        serial port. The Arduino must have received the `turn_on()` command
-        in order for it to send out these readings.
+    def listen_to_device(self) -> int:
+        """Listen for new readings being broadcast over the active transport.
+        The device must have received the `turn_on()` command in order for it
+        to send out these readings.
 
         This method is blocking until we received enough data to fill up the
         ring buffers with all new data, or until communication timed out.
@@ -230,7 +259,7 @@ class ThermistorLoggerArduino(Arduino):
         while True:
             try:
                 _success, line = self.readline(raises_on_timeout=True)
-            except serial.SerialException:
+            except serial.SerialException, TimeoutError:
                 print("Communication timed out. ", end="")
                 if new_rows_count == 0:
                     print("No new data was appended to the ring buffers.")
@@ -250,3 +279,49 @@ class ThermistorLoggerArduino(Arduino):
                 break
 
         return new_rows_count
+
+
+# ------------------------------------------------------------------------------
+#   ThermistorLoggerSerial
+# ------------------------------------------------------------------------------
+
+
+class ThermistorLoggerSerial(Arduino, ThermistorLoggerBase):
+    """Thermistor Logger over serial transport."""
+
+    def __init__(
+        self,
+        name="Ard",
+        long_name="Serial Thermistor Logger",
+        connect_to_specific_ID="Thermistor Logger",
+        ring_buffer_capacity: int = 1,
+    ):
+        Arduino.__init__(
+            self,
+            name=name,
+            long_name=long_name,
+            connect_to_specific_ID=connect_to_specific_ID,
+        )
+        ThermistorLoggerBase.__init__(self, ring_buffer_capacity)
+
+        self.serial_settings["timeout"] = 4
+
+
+# ------------------------------------------------------------------------------
+#   ThermistorLoggerTelnet
+# ------------------------------------------------------------------------------
+
+
+class ThermistorLoggerTelnet(TelnetServerDevice, ThermistorLoggerBase):
+    """Thermistor Logger over telnet transport."""
+
+    def __init__(
+        self,
+        name="Ard",
+        long_name="Telnet Thermistor Logger",
+        ring_buffer_capacity: int = 1,
+    ):
+        TelnetServerDevice.__init__(self, name=name, long_name=long_name)
+        ThermistorLoggerBase.__init__(self, ring_buffer_capacity)
+
+        self.telnet_settings["timeout"] = 4

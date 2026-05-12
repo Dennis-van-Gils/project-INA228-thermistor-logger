@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Provides base class TelnetServerDevice(), offering blocking I/O methods.
-Instances of this class will tie in nicely with
-:class:`dvg_qdeviceio.QDeviceIO`.
+"""Provides base class TelnetServerDevice(), offering blocking I/O methods to
+communicate with a telnet server device. Instances of this class will tie in
+nicely with :class:`dvg_qdeviceio.QDeviceIO`.
 
 These base classes are meant to be inherited into your own specific *Device*
 class.
@@ -26,7 +26,7 @@ from dvg_debug_functions import dprint, ANSI, print_fancy_traceback as pft
 
 
 class TelnetServerDevice:
-    """This class provides blocking I/O methods for a TelnetServer device by
+    """This class provides blocking I/O methods for a telnet server device by
     wrapping the `telnetlib3 <https://telnetlib3.readthedocs.io/en/latest>`_
     library.
 
@@ -106,10 +106,19 @@ class TelnetServerDevice:
     #   readline
     # --------------------------------------------------------------------------
 
-    def readline(self) -> Tuple[bool, Union[str, bytes, None]]:
+    def readline(
+        self,
+        raises_on_timeout: bool = False,
+    ) -> Tuple[bool, Union[str, bytes, None]]:
         """Listen to the telnet server for incoming data. This method is
         blocking and returns when a full line has been received or when the read
         timeout has expired.
+
+        Args:
+            raises_on_timeout (:obj:`bool`, optional):
+                Should an exception be raised when a read timeout occurs?
+
+                Default: :const:`False`
 
         Returns:
             :obj:`tuple`:
@@ -122,6 +131,12 @@ class TelnetServerDevice:
 
         try:
             reply = self.conn.readline()
+        except TimeoutError as err:
+            if raises_on_timeout:
+                raise err
+
+            pft(err)
+            return False, None
         except Exception as err:
             pft(err)
             return False, None

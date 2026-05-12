@@ -14,7 +14,7 @@ __version__ = "1.0"
 from typing import Callable
 
 from dvg_qdeviceio import QDeviceIO, DAQ_TRIGGER
-from ThermistorLoggerArduino import ThermistorLoggerArduino
+from ThermistorLoggerArduino import ThermistorLoggerBase
 
 
 class ThermistorLoggerArduino_qdev(QDeviceIO):
@@ -23,13 +23,13 @@ class ThermistorLoggerArduino_qdev(QDeviceIO):
 
     def __init__(
         self,
-        dev: ThermistorLoggerArduino,
+        dev: ThermistorLoggerBase,
         DAQ_function: Callable[[], bool],
         debug=False,
         **kwargs,
     ):
         super().__init__(dev, **kwargs)  # Pass kwargs onto QtCore.QObject()
-        self.dev: ThermistorLoggerArduino  # Enforce type: removes `_NoDevice()`
+        self.dev: ThermistorLoggerBase  # Enforce type: removes `_NoDevice()`
 
         self.create_worker_DAQ(
             DAQ_trigger=DAQ_TRIGGER.CONTINUOUS,
@@ -45,12 +45,14 @@ class ThermistorLoggerArduino_qdev(QDeviceIO):
 
     def turn_on(self):
         """Send instruction to the Arduino to turn on its continuous data
-        reporting of all thermistor data over the serial/wifi stream.
+        reporting of all thermistor data over the transport backend (serial or
+        telnet).
         """
         self.send(self.dev.turn_on)
 
     def turn_off(self):
         """Send instruction to the Arduino to turn off its continuous data
-        reporting of all thermistor data over the serial/wifi stream.
+        reporting of all thermistor data over the transport backend (serial or
+        telnet).
         """
         self.send(self.dev.turn_off)

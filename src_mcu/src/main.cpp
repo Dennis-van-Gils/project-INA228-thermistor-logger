@@ -220,7 +220,6 @@ void loop() {
   if (server.hasClient()) {
     if (!client || !client.connected()) {
       client = server.accept();
-      client.println("READY");
     } else {
       WiFiClient reject = server.accept();
       reject.stop();
