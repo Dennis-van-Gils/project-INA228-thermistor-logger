@@ -614,10 +614,9 @@ if __name__ == "__main__":
 
     def write_header_to_log():
         log.write(f"Sensors: {ard.state.sensor_addresses}\n")
-        log.write("Time [s]\tPT-104 [\u00b0C]")
+        log.write("Time [s]\tPT104 [\u00b0C]")
         for idx, _ in enumerate(ard.state.INA228_sensors):
-            i = idx + 1
-            log.write(f"\tR_{i} [\u03a9]\tI_{i} [A]\tV_{i} [V]")
+            log.write(f"\tR_{idx} [\u03a9]\tI_{idx} [A]\tV_{idx} [V]")
         log.write("\n")
 
     def write_data_to_log():
