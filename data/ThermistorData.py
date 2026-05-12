@@ -43,7 +43,8 @@ COLOR_MAP = [
 
 
 class INA228_Sensor:
-    """Container for the timeseries data of a single INA228 sensor."""
+    """Container for the timeseries data of a single INA228 sensor to which a
+    thermistor is connected."""
 
     def __init__(self):
         self.address: str = ""
@@ -71,9 +72,10 @@ class INA228_Sensor:
 
 
 class ThermistorData:
-    """Manages the data as logged to file by the INA228ThermistorLogger Arduino
-    control program. Contains the timeseries data of all INA228 sensors, i.e.
-    thermistors.
+    """Manages the data as logged to file by the Thermistor Logger Arduino
+    control program. Contains the timeseries data of all thermistors in
+    member `sensors`, and contains the timeseries data of the optional Picotech
+    PT-104 temperature probe.
 
     Args:
         filepath (`pathlib.Path` | `str` | `None`, optional):

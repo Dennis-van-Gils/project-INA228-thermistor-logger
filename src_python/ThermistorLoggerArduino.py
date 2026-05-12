@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Provides class `INA228_ThermistorLoggerArduino` to manage serial
-communication with an Arduino programmed as an INA228 Thermistor Logger.
+"""Provides class `ThermistorLoggerArduino` to manage serial communication with
+an Arduino programmed as a Thermistor Logger.
 """
 
 __author__ = "Dennis van Gils"
@@ -19,16 +19,17 @@ from dvg_debug_functions import print_fancy_traceback as pft
 from dvg_ringbuffer import RingBuffer
 
 # ------------------------------------------------------------------------------
-#   INA228_ThermistorLoggerArduino
+#   ThermistorLoggerArduino
 # ------------------------------------------------------------------------------
 
 
-class INA228_ThermistorLoggerArduino(Arduino):
-    """Manages serial communication with an Arduino programmed as an INA228
-    Thermistor Logger."""
+class ThermistorLoggerArduino(Arduino):
+    """Manages serial communication with an Arduino programmed as a Thermistor
+    Logger."""
 
     class INA228_Sensor:
-        """Container for the measurement values of a single INA228 sensor."""
+        """Container for the measurement values of a single INA228 sensor to
+        which a thermistor is connected."""
 
         def __init__(self, capacity: int, address: str):
             self.capacity = capacity
@@ -53,7 +54,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
             """Derived resistance [Ohm]"""
 
             self.T_die = RingBuffer(capacity)
-            """Die temperature ['C]"""
+            """Die temperature of the INA228 chip ['C]"""
 
             self._ring_buffers = [
                 self.time,
@@ -70,7 +71,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
                 rb.clear()
 
     class State:
-        """Container for the measurement values of all INA228 sensors.
+        """Container for the measurement values of all thermistors.
 
         Method `begin()` must be called to populate member `INA228_sensors`.
         """
@@ -85,20 +86,18 @@ class INA228_ThermistorLoggerArduino(Arduino):
             self.N_sensors = 0
             """Number of INA228 sensors connected to the Arduino"""
 
-            self.INA228_sensors: list[
-                INA228_ThermistorLoggerArduino.INA228_Sensor
-            ] = []
-            """List of all INA228 sensors, each containing measurement values."""
+            self.sensors: list[ThermistorLoggerArduino.INA228_Sensor] = []
+            """List of all INA228 sensors, each containing thermistor data."""
 
         def clear(self):
-            for ina228 in self.INA228_sensors:
-                ina228.clear()
+            for sensor in self.sensors:
+                sensor.clear()
 
     def __init__(
         self,
         name="Ard",
         long_name="Arduino",
-        connect_to_specific_ID="INA228 Thermistor Logger",
+        connect_to_specific_ID="Thermistor Logger",
         ring_buffer_capacity: int = 1,
     ):
         super().__init__(
@@ -125,7 +124,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
         """
         if self.query_sensor_addresses():
             for address in self.state.sensor_addresses:
-                self.state.INA228_sensors.append(
+                self.state.sensors.append(
                     self.INA228_Sensor(
                         self.state.capacity,
                         address,
@@ -164,7 +163,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
 
     def turn_on(self) -> bool:
         """Send instruction to the Arduino to turn on its continuous data
-        reporting of all INA228 sensor data over the serial/wifi stream.
+        reporting of all thermistor data over the serial/wifi stream.
 
         Returns:
             True if successful, False otherwise.
@@ -173,7 +172,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
 
     def turn_off(self) -> bool:
         """Send instruction to the Arduino to turn off its continuous data
-        reporting of all INA228 sensor data over the serial/wifi stream.
+        reporting of all thermistor data over the serial/wifi stream.
 
         Returns:
             True if successful, False otherwise.
@@ -195,7 +194,7 @@ class INA228_ThermistorLoggerArduino(Arduino):
         N_FIELDS = 4
 
         try:
-            for idx, sensor in enumerate(self.state.INA228_sensors):
+            for idx, sensor in enumerate(self.state.sensors):
                 sensor.time.append(int(parts[0]) * 1e-3)
                 sensor.V_bus.append(float(parts[idx * N_FIELDS + 1]))
                 sensor.V_shunt.append(float(parts[idx * N_FIELDS + 2]) * 1e-3)

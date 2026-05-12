@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Main control program and graphical user interface for an Arduino programmed
-as an INA228 Thermistor Logger. It will log and plot in real-time the voltage,
-current and resistance values of each thermistor.
+as a Thermistor Logger. It will log and plot in real-time the resistance,
+current and voltage values of each thermistor.
 """
 
 __author__ = "Dennis van Gils"
@@ -38,9 +38,9 @@ from dvg_ringbuffer import RingBuffer
 from dvg_devices.Picotech_PT104_protocol_UDP import Picotech_PT104
 from dvg_devices.Picotech_PT104_qdev import Picotech_PT104_qdev
 
-from INA228_ThermistorLoggerArduino import INA228_ThermistorLoggerArduino
-from INA228_ThermistorLoggerArduino_qdev import (
-    INA228_ThermistorLoggerArduino_qdev,
+from ThermistorLoggerArduino import ThermistorLoggerArduino
+from ThermistorLoggerArduino_qdev import (
+    ThermistorLoggerArduino_qdev,
 )
 
 # Constants
@@ -96,7 +96,7 @@ def current_date_time_strings():
 class MainWindow(QtWid.QWidget):
     def __init__(
         self,
-        qdev: INA228_ThermistorLoggerArduino_qdev,
+        qdev: ThermistorLoggerArduino_qdev,
         qdev_pt104: Picotech_PT104_qdev,
         qlog: FileLogger,
         parent=None,
@@ -108,13 +108,13 @@ class MainWindow(QtWid.QWidget):
         self.qdev.signal_DAQ_updated.connect(self.update_GUI)
         self.qdev_pt104 = qdev_pt104
         self.qlog = qlog
-        self.INA228_sensors = self.qdev.dev.state.INA228_sensors  # Shorthand
+        self.sensors = self.qdev.dev.state.sensors  # Shorthand
 
         self.do_update_readings_GUI = True
         """Update the GUI elements corresponding to the Arduino readings, like
         textboxes and charts?"""
 
-        self.setWindowTitle("INA228 Thermistor Logger")
+        self.setWindowTitle("Thermistor Logger")
         self.setGeometry(40, 60, 960, 660)
         self.setStyleSheet(controls.SS_TEXTBOX_READ_ONLY + controls.SS_GROUP)
 
@@ -138,7 +138,7 @@ class MainWindow(QtWid.QWidget):
         vbox_left.addWidget(self.qlbl_DAQ_rate_2, stretch=0)
 
         # Middle box
-        self.qlbl_title = QtWid.QLabel("INA228 Thermistor Logger")
+        self.qlbl_title = QtWid.QLabel("Thermistor Logger")
         self.qlbl_title.setFont(
             QtGui.QFont(
                 "Palatino",
@@ -259,7 +259,7 @@ class MainWindow(QtWid.QWidget):
         self.tscurves_T: list[ThreadSafeCurve] = []
         """List of ThreadSafeCurves `Temperature: T`"""
 
-        for idx, sensor in enumerate(self.INA228_sensors):
+        for idx, sensor in enumerate(self.sensors):
             self.tscurves_R.append(
                 HistoryChartCurve(
                     capacity=CHART_CAPACITY,
@@ -367,7 +367,7 @@ class MainWindow(QtWid.QWidget):
         self.qlins_V: list[QtWid.QLineEdit] = []
         """List of all QLineEdits 'Voltage: V"""
 
-        for sensor in self.INA228_sensors:
+        for sensor in self.sensors:
             self.qlins_R.append(QtWid.QLineEdit(**p))
             self.qlins_I.append(QtWid.QLineEdit(**p))
             self.qlins_V.append(QtWid.QLineEdit(**p))
@@ -393,7 +393,7 @@ class MainWindow(QtWid.QWidget):
         grid.addWidget(QtWid.QLabel("I (mA)")    , i, 2)
         grid.addWidget(QtWid.QLabel("V (V)")     , i, 3); i+=1
 
-        for idx, sensor in enumerate(self.INA228_sensors):
+        for idx, sensor in enumerate(self.sensors):
             grid.addWidget(QtWid.QLabel(sensor.address), i, 0)
             grid.addWidget(self.qlins_R[idx]           , i, 1)
             grid.addWidget(self.qlins_I[idx]           , i, 2)
@@ -475,9 +475,9 @@ class MainWindow(QtWid.QWidget):
 
         # self.update_legend_visibility()
 
-        if self.do_update_readings_GUI and state.INA228_sensors[0].time.is_full:
-            self.timestamp.setText(f"{self.INA228_sensors[0].time[0]:.1f}")
-            for idx, sensor in enumerate(self.INA228_sensors):
+        if self.do_update_readings_GUI and state.sensors[0].time.is_full:
+            self.timestamp.setText(f"{self.sensors[0].time[0]:.1f}")
+            for idx, sensor in enumerate(self.sensors):
                 self.qlins_R[idx].setText(f"{np.mean(sensor.R):.0f}")
                 self.qlins_I[idx].setText(f"{np.mean(sensor.I) * 1e3:.5f}")
                 self.qlins_V[idx].setText(f"{np.mean(sensor.V_bus):.5f}")
@@ -509,7 +509,7 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    ard = INA228_ThermistorLoggerArduino(ring_buffer_capacity=1)
+    ard = ThermistorLoggerArduino(ring_buffer_capacity=1)
     ard.auto_connect()
 
     if not ard.is_alive:
@@ -563,8 +563,8 @@ if __name__ == "__main__":
             return False
 
         # Add readings to chart history
-        time = ard.state.INA228_sensors[0].time
-        for idx, sensor in enumerate(ard.state.INA228_sensors):
+        time = ard.state.sensors[0].time
+        for idx, sensor in enumerate(ard.state.sensors):
             window.tscurves_R[idx].extendData(time, sensor.R)
             # window.tscurves_T[idx].extendData(time, sensor.T)
 
@@ -591,7 +591,7 @@ if __name__ == "__main__":
 
         return True
 
-    ard_qdev = INA228_ThermistorLoggerArduino_qdev(
+    ard_qdev = ThermistorLoggerArduino_qdev(
         dev=ard,
         DAQ_function=DAQ_function,
         debug=DEBUG,
@@ -615,12 +615,12 @@ if __name__ == "__main__":
     def write_header_to_log():
         log.write(f"Sensors: {ard.state.sensor_addresses}\n")
         log.write("Time [s]\tPT104 [\u00b0C]")
-        for idx, _ in enumerate(ard.state.INA228_sensors):
+        for idx, _ in enumerate(ard.state.sensors):
             log.write(f"\tR_{idx} [\u03a9]\tI_{idx} [A]\tV_{idx} [V]")
         log.write("\n")
 
     def write_data_to_log():
-        data = [ard.state.INA228_sensors[0].time]
+        data = [ard.state.sensors[0].time]
         fmts = "%.3f"
 
         # NOTE: The PT-104 has a different DAQ rate than the thermistor
@@ -636,7 +636,7 @@ if __name__ == "__main__":
         data.append(ring_buffer_T)
         fmts += "\t%.3f"
 
-        for sensor in ard.state.INA228_sensors:
+        for sensor in ard.state.sensors:
             data.append(sensor.R)
             data.append(sensor.I)
             data.append(sensor.V_bus)

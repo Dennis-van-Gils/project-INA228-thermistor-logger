@@ -250,7 +250,7 @@ void loop() {
     if (cmd_pending) {
 
       if (strcmp(str_cmd, "id?") == 0) {
-        println("Arduino, INA228 Thermistor Logger");
+        println("Arduino, Thermistor Logger");
         DAQ_running = false;
 
       } else if (strcmp(str_cmd, "addr?") == 0) {
