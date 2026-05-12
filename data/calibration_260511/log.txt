@@ -43,3 +43,4 @@ The bath temperature is set to a quasi-stationary ramp:
   End   temperature: 40 'C
   Rate: 1 K / 10 min
   --> Total ramp time = dT * 10 min = 240 min
+  Afterwards: Soak temperature: 20 'C
