@@ -50,7 +50,7 @@ class TelnetServerDevice:
     Attributes:
         long_name (:obj:`str`):
             Long display name of the device in a general sense. E.g,
-            `""Wemos ESP32-S3"`.
+            `"Wemos ESP32-S3"`.
 
         name (:obj:`str`):
             Short display name for the device. E.g., `"ESP32"` or `"blinker"`.
