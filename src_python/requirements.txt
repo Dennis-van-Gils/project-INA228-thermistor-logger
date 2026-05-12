@@ -6,6 +6,7 @@ pyopengl~=3.1
 pyside6
 qtawesome
 qtpy
+telnetlib3
 
 dvg-debug-functions~=2.5
 dvg-devices~=1.5
