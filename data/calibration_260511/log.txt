@@ -38,9 +38,23 @@ calibrate resistance to temperature by placing all thermistors inside the
 temperature controlled bath, and calibrating their resistances against an
 additional PT100 temperature probe (Picotech PT-104).
 
-The bath temperature is set to a quasi-stationary ramp:
-  Start temperature: 16 'C
-  End   temperature: 40 'C
-  Rate: 1 K / 10 min
-  --> Total ramp time = dT * 10 min = 240 min
+The bath temperature is set to a quasi-stationary ramps of 1 K / 10 min.
+
+Run 1: 11-05-2026
+  Ramp 1
+    Start temperature: 16 'C
+    End   temperature: 40 'C
+    Total ramp time = dT * 10 min = 240 min
   Afterwards: Soak temperature: 20 'C
+  
+Run 2: 12-05-2026
+  Ramp 1
+    Start temperature: 16 'C
+    End   temperature: 40 'C
+    Total ramp time = dT * 10 min = 240 min
+  Ramp 2
+    Start temperature: 40 'C
+    End   temperature: 16 'C
+    Total ramp time = dT * 10 min = 240 min
+  Afterwards: Soak temperature: 20 'C
+   
