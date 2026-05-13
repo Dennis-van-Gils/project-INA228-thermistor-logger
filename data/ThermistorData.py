@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Provides classes `ThermistorData` and `INA228_Sensor`."""
+"""Provides classes `ThermistorData` and `INA228_Sensor`, useful for reading in
+log files containing thermistor timeseries data from disk for your own further
+analysis.
+"""
 
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
@@ -16,6 +19,7 @@ import re
 
 import numpy as np
 import numpy.typing as npt
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 # plt.style.use("default")
@@ -210,9 +214,9 @@ class ThermistorData:
     #   quick_plot
     # --------------------------------------------------------------------------
 
-    def quick_plot(self):
-        """Plot the timeseries of the thermistors for quick inspection and save
-        the image to disk."""
+    def quick_plot(self, save_to_disk: bool = False) -> Figure:
+        """Plot the timeseries of the thermistors for quick inspection and
+        optionally save the plot as image to disk."""
 
         fig = plt.figure(figsize=(16, 10), dpi=90)
         fig.suptitle(f"{self.filename}")
@@ -248,7 +252,9 @@ class ThermistorData:
 
         fig.legend()
 
-        # Save figure to disk
-        file_parts = os.path.splitext(self.filepath)
-        fig.savefig(f"{file_parts[0]}.png", dpi=120)
-        fig.savefig(f"{file_parts[0]}.pdf")
+        if save_to_disk:
+            file_parts = os.path.splitext(self.filepath)
+            fig.savefig(f"{file_parts[0]}.png", dpi=120)
+            fig.savefig(f"{file_parts[0]}.pdf")
+
+        return fig
