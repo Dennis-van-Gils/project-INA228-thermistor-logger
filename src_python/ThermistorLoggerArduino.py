@@ -37,7 +37,7 @@ from dvg_debug_functions import print_fancy_traceback as pft
 from dvg_ringbuffer import RingBuffer
 
 from dvg_devices.Arduino_protocol_serial import Arduino
-from TelnetServerDevice import TelnetServerDevice
+from dvg_devices.BaseDevice import TelnetServerDevice
 
 # ------------------------------------------------------------------------------
 #   ThermistorLoggerBase
