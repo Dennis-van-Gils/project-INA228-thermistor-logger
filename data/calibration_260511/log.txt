@@ -7,32 +7,32 @@ Purpose:
 Equipment:
     Microcontroller (mcu):
       Wemos Lolin ESP32-S3
-  
+
     INA228 power monitors, 4x:
       Adafruit INA228 (ADA5832).
       I2C 85V, 20-bit High or Low Side Power Monitor featuring Texas Instruments
       INA228.
       NOTE: Replaced the onboard shunt resistor of 0.015 Ohm with a 1.0 Ohm one.
-      
+
     Thermistors, 4x:
       Measurement Specialties (GA)G22K7MCD419.
       Glass bead Ø0.38mm, 30 ms response time in liquids.
-      
+
     Temperature bath:
       PolyScience PD15R-30-A12E.
       15 mK temperature stability.
-     
+
     PT100 probe:
       Picotech PT-104.
       Accuracy: 0.015 K
       Resolution: 0.001 K
-      
+
 Each thermistor is connected to a single dedicated INA228 board in high-side
 power configuration, meaning:
   V_bus & Vin+ are connected together to the 3.3V output of the mcu.
   Vin- is connected to one thermistor lead.
   Other thermistor lead is connected to the GND of the mcu.
-  
+
 We specifically keep each thermistor matched to a particular INA228 board. We
 calibrate resistance to temperature by placing all thermistors inside the
 temperature controlled bath, and calibrating their resistances against an
@@ -40,13 +40,16 @@ additional PT100 temperature probe (Picotech PT-104).
 
 The bath temperature is set to a quasi-stationary ramps of 1 K / 10 min.
 
+Runs
+----
+
 Run 1: 11-05-2026
   Ramp 1
     Start temperature: 16 'C
     End   temperature: 40 'C
     Total ramp time = dT * 10 min = 240 min
   Afterwards: Soak temperature: 20 'C
-  
+
 Run 2: 12-05-2026
   Ramp 1
     Start temperature: 16 'C
@@ -56,5 +59,24 @@ Run 2: 12-05-2026
     Start temperature: 40 'C
     End   temperature: 16 'C
     Total ramp time = dT * 10 min = 240 min
+  Repeat this cycle twice
   Afterwards: Soak temperature: 20 'C
-   
+
+Analysis 13-05-2026
+-------------------
+
+We divide the log files into separate single temperature ramps as such:
+
+  Selection criteria:
+    17 < PT104 ('C) < 39
+
+  Log 260512_185755
+  -----------------
+    Ramp 1: up              832 < t (s) < 14022
+
+  Log 260512_185755
+  -----------------
+    Ramp 1: up             1220 < t (s) < 14407
+    Ramp 2: down          15740 < t (s) < 28917
+    Ramp 3: up            30004 < t (s) < 43210
+    Ramp 4: down          failed near the end, discard
