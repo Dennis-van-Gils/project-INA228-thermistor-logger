@@ -86,13 +86,16 @@ for sensor_idx, sensor_address in enumerate(data[0].sensor_addresses):
     # Plot
     fig = plt.figure(**p)
     figs.append(fig)
+    fig.add_subplot(2, 1, 1)
+    fig.add_subplot(2, 1, 2)
 
-    ax = fig.add_subplot(1, 1, 1)
     for ramp_idx, ramp in enumerate(data):
         sensor = ramp.sensors[sensor_idx]
         ensemble.R = np.append(ensemble.R, sensor.R)
         ensemble.T = np.append(ensemble.T, ramp.PT104 + ABS_ZERO_DEG_C)
 
+        axs = fig.get_axes()
+        ax = axs[0]
         ax.plot(
             ramp.PT104,
             sensor.R,
@@ -101,10 +104,11 @@ for sensor_idx, sensor_address in enumerate(data[0].sensor_addresses):
             **linestyle,
         )
 
-    ax.set_xlabel("PT104 (\u00b0C)")
+    ax.set_xlabel("T$_{PT100}$ (\u00b0C)")
     ax.set_ylabel("R (\u03a9)")
+    # ax.set_yscale("log")
     ax.set_xlim(15, 40)
-    ax.set_ylim(12500, 32500)
+    ax.set_ylim(12500, 31000)
     ax.grid(True)
 
     fig.suptitle(f"Thermistor: {sensor_address}")
@@ -168,7 +172,7 @@ for sensor_idx, ensemble in enumerate(ensembles):
     print(f"  C = {C:.4e}")
     print(f"\n  RMSE: {rmse:.4f} K")
 
-    # Plot
+    # Plot fit into R-T figure
     fig = figs[sensor_idx]
     axs = fig.get_axes()
     ax = axs[0]
@@ -179,7 +183,28 @@ for sensor_idx, ensemble in enumerate(ensembles):
         color="w",
         label="Steinhart-Hart fit",
     )
-    ax.set_yscale("log")
     fig.legend()
+
+    # Plot residuals from fit in T-R figure per ramp
+    for ramp_idx, ramp in enumerate(data):
+        sensor = ramp.sensors[sensor_idx]
+        fitted_temp_K = steinhart_hart(sensor.R, A, B, C)
+        fitted_temp_C = fitted_temp_K - ABS_ZERO_DEG_C
+
+        ax = axs[1]
+        ax.plot(
+            sensor.R,
+            fitted_temp_C - ramp.PT104,
+            color=cm[ramp_idx],
+            label=ramp.filename,
+            **linestyle,
+        )
+
+    ax = axs[1]
+    ax.set_xlabel("R (\u03a9)")
+    ax.set_ylabel("residuals from fit (K)")
+    ax.set_xlim(12500, 31000)
+    ax.set_ylim(-0.35, 0.35)
+    ax.grid(True)
 
 plt.show()
