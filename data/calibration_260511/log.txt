@@ -40,8 +40,8 @@ additional PT100 temperature probe (Picotech PT-104).
 
 The bath temperature is set to a quasi-stationary ramps of 1 K / 10 min.
 
-Runs
-----
+Calibration 11-05-2026
+----------------------
 
 Run 1: 11-05-2026
   Ramp 1
@@ -80,3 +80,31 @@ We divide the log files into separate single temperature ramps as such:
     Ramp 2: down          15740 < t (s) < 28917
     Ramp 3: up            30004 < t (s) < 43210
     Ramp 4: down          failed near the end, discard
+
+Findings after plotting results:
+  Turns out that the down ramps have an offset with respect to the up ramps of
+  about 0.2 K. This is probably due to the fact that the tip of the PT104 probe
+  was inside a blind hole of a large copper body, intended to smoothen out
+  temperature fluctuations inside of the temperature bath. The thermistors
+  themselves were exposed directly to the water. This caused a thermal inertia
+  of the PT104 probe with respect to the thermistors, causing the offset.
+  
+  Solution:
+  Redo the calibration, but now with the tip of PT104 probe directly exposed to
+  the bath water, with the thermistors right next to the probe tip.
+  
+Calibration 14-05-2026
+----------------------
+NOTE: Thermistor 0x41 broke. Got replaced.
+
+Run 1: 14-05-2026
+  Ramp 1
+    Start temperature: 16 'C
+    End   temperature: 40 'C
+    Total ramp time = dT * 10 min = 240 min
+  Ramp 2
+    Start temperature: 40 'C
+    End   temperature: 16 'C
+    Total ramp time = dT * 10 min = 240 min
+  Repeat this cycle twice
+  Afterwards: Soak temperature: 16 'C
