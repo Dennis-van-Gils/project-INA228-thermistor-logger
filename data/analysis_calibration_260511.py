@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import curve_fit
 
-from ThermistorData import ThermistorData, INA228_Sensor
+from ThermistorData import ThermistorData
 
 ABS_ZERO_DEG_C = 273.15  # [K]
 
@@ -111,7 +111,7 @@ for sensor_idx, sensor_address in enumerate(data[0].sensor_addresses):
     ax.set_ylim(12500, 31000)
     ax.grid(True)
 
-    fig.suptitle(f"Thermistor: {sensor_address}")
+    fig.suptitle(f"Thermistor {sensor_address}")
     fig.legend()
 
     ensembles.append(ensemble)
@@ -167,10 +167,10 @@ for sensor_idx, ensemble in enumerate(ensembles):
     rmse = np.sqrt(np.mean(residuals**2))
 
     print("Steinhart-Hart fit:")
-    print(f"  A = {A:.4e}")
-    print(f"  B = {B:.4e}")
-    print(f"  C = {C:.4e}")
-    print(f"\n  RMSE: {rmse:.4f} K")
+    print(f"  A = {A:.5e}")
+    print(f"  B = {B:.5e}")
+    print(f"  C = {C:.5e}")
+    print(f"\n  RMSE: {rmse:.3f} K")
 
     # Plot fit into R-T figure
     fig = figs[sensor_idx]
@@ -184,6 +184,11 @@ for sensor_idx, ensemble in enumerate(ensembles):
         label="Steinhart-Hart fit",
     )
     fig.legend()
+    fig.suptitle(
+        f"Thermistor {ensemble.address}\n\n"
+        f"fit: A={A:.5e}, B={B:.5e}, C={C:.5e}\n"
+        f"RMSE: {rmse:.3f} K"
+    )
 
     # Plot residuals from fit in T-R figure per ramp
     for ramp_idx, ramp in enumerate(data):
@@ -208,3 +213,11 @@ for sensor_idx, ensemble in enumerate(ensembles):
     ax.grid(True)
 
 plt.show()
+
+# Save figures to disk
+if 1:
+    for sensor_idx, sensor in enumerate(data[0].sensors):
+        fn_fig = f"calibration_260511 sensor {sensor.address}"
+        fig = figs[sensor_idx]
+        fig.savefig(f"{fn_fig}.png", dpi=120)
+        fig.savefig(f"{fn_fig}.pdf")
