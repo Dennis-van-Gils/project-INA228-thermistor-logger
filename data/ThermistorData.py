@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Provides classes `ThermistorData` and `INA228_Sensor`, useful for reading in
-log files containing thermistor timeseries data from disk for your own further
-analysis.
+"""Data analysis tools for post-processing the log files created by the
+Thermistor Logger control program.
+
+Provides:
+    * Classes
+        `INA228_Sensor()`
+        `ThermistorData()`
+        `Ensemble()`
+
+    * Methods
+        `steinhart-hart()`
+        `perform_steinhart_hart_fit()`
+
+    * Constants
+        `ABS_ZERO_DEG_C`
+        `COLORMAP`
 """
 
 __author__ = "Dennis van Gils"
@@ -19,6 +32,7 @@ import re
 
 import numpy as np
 import numpy.typing as npt
+from scipy.optimize import curve_fit
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
@@ -33,6 +47,8 @@ plt.rcParams["axes.labelsize"] = 14
 #   Constants
 # ------------------------------------------------------------------------------
 
+ABS_ZERO_IN_DEG_C = -273.15  # [K]
+
 COLOR_MAP = [
     [1, 0.0392, 0.0392],
     [0.157, 0.980, 0.157],
@@ -40,6 +56,88 @@ COLOR_MAP = [
     [1, 0, 0.604],
     [1, 1, 1],
 ]
+"""E.g., one color for each of the 4 sensor addresses, i.e. thermistors, plus
+the color for the PT104 temperature curve."""
+
+
+# ------------------------------------------------------------------------------
+#   steinhart_hart
+# ------------------------------------------------------------------------------
+
+
+def steinhart_hart(
+    R: float | npt.NDArray[np.float64],
+    A: float | tuple[float, float, float] | npt.NDArray[np.float64],
+    B: float = np.nan,
+    C: float = np.nan,
+) -> float | npt.NDArray[np.float64]:
+    """Steinhart-Hart equation relating thermistor resistance `R [Ohm]` to
+    temperature `T [K]`:
+
+        T = 1 / [ A + B * ln(R) + C * (ln(R))^3 ],
+
+    where `A`, `B` and `C` are the Steinhart-Hart coefficients.
+
+    Returns:
+        Temperature T [K]
+    """
+    if isinstance(A, (tuple, np.ndarray)):
+        coeff_A = A[0]
+        coeff_B = A[1]
+        coeff_C = A[2]
+    else:
+        coeff_A = A
+        coeff_B = B
+        coeff_C = C
+
+    lnR = np.log(R)
+    return 1.0 / (coeff_A + coeff_B * lnR + coeff_C * lnR**3)
+
+
+# ------------------------------------------------------------------------------
+#   perform_steinhart_hart_fit
+# ------------------------------------------------------------------------------
+
+
+def perform_steinhart_hart_fit(
+    R: npt.NDArray[np.float64],
+    T: npt.NDArray[np.float64],
+    initial_guess: tuple[float, float, float] = (1e-3, 2e-4, 1e-7),
+) -> tuple[
+    tuple[float, float, float],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    float,
+]:
+    """Perform a Steinhart-Hart fit to thermistor resistance `R [Ohm]` versus
+    temperature `T [K]` data.
+
+    Returns
+    -------
+        coeffs (tuple[float, float, float]):
+            Steinhart-Hart coefficients (A, B, C).
+
+        fitted_temp_K (np.ndarray[float]):
+            Resulting temperature fit [K].
+
+        residuals_temp_K (np.ndarray[float]):
+            Temperature residuals from fit [K].
+
+        rmse (float):
+            Root-mean-square error of the temperature residuals [K].
+    """
+    params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
+    coeffs = (params[0], params[1], params[2])
+
+    # Compute fitted temperatures
+    fitted_temp_K = np.asarray(steinhart_hart(R, coeffs))
+
+    # Residuals
+    residuals_temp_K = fitted_temp_K - T
+    rmse = np.sqrt(np.mean(residuals_temp_K**2))
+
+    return coeffs, fitted_temp_K, residuals_temp_K, rmse
+
 
 # ------------------------------------------------------------------------------
 #   INA228_Sensor
@@ -54,19 +152,19 @@ class INA228_Sensor:
         self.address: str = ""
         """Sensor address as hex string"""
 
-        self.time: npt.NDArray[np.float64] = np.array([np.nan])
+        self.time: npt.NDArray[np.float64] = np.array([])
         """Time [s]"""
 
-        self.R: npt.NDArray[np.float64] = np.array([np.nan])
+        self.R: npt.NDArray[np.float64] = np.array([])
         """Resistance timeseries [Ohm]"""
 
-        self.I: npt.NDArray[np.float64] = np.array([np.nan])
+        self.I: npt.NDArray[np.float64] = np.array([])
         """Current timeseries [I]"""
 
-        self.V: npt.NDArray[np.float64] = np.array([np.nan])
+        self.V: npt.NDArray[np.float64] = np.array([])
         """Voltage timeseries [V]"""
 
-        self.T_die: npt.NDArray[np.float64] = np.array([np.nan])
+        self.T_die: npt.NDArray[np.float64] = np.array([])
         """Die temperature timeseries of the INA228 chip ['C]"""
 
 
@@ -76,10 +174,10 @@ class INA228_Sensor:
 
 
 class ThermistorData:
-    """Manages the data as logged to file by the Thermistor Logger Arduino
-    control program. Contains the timeseries data of all thermistors in
-    member `sensors`, and contains the timeseries data of the optional Picotech
-    PT-104 temperature probe.
+    """Manages the data as logged to file by the Thermistor Logger control
+    program. Contains the timeseries data of all thermistors in member
+    `sensors`, and contains the timeseries data of the optional Picotech
+    PT-104 temperature probe in member `PT104`.
 
     Args:
         filepath (`pathlib.Path` | `str` | `None`, optional):
@@ -128,10 +226,10 @@ class ThermistorData:
         self.sensors: list[INA228_Sensor] = []
         """List of all INA228 sensors, each containing timeseries data."""
 
-        self.time: npt.NDArray[np.float64] = np.array([np.nan])
+        self.time: npt.NDArray[np.float64] = np.array([])
         """Time [s]"""
 
-        self.PT104: npt.NDArray[np.float64] = np.array([np.nan])
+        self.PT104: npt.NDArray[np.float64] = np.array([])
         """Temperature timeseries ['C] as logged by the optional Picotech PT-104
         probe ['C]. This is a PT100 logger with 0.001 K resolution and 0.015 K
         accuracy."""
@@ -143,8 +241,7 @@ class ThermistorData:
     # --------------------------------------------------------------------------
 
     def read_file(self, filepath: Path | str | None = None):
-        """Read in a log file acquired by the INA228 Thermistor Logger control
-        program.
+        """Read in a log file acquired by the Thermistor Logger control program.
 
         Args:
             filepath (`pathlib.Path` | `str` | `None`, optional):
@@ -219,14 +316,17 @@ class ThermistorData:
         optionally save the plot as image to disk."""
 
         fig = plt.figure(figsize=(16, 10), dpi=90)
-        fig.suptitle(f"{self.filename}")
-
         ax1 = fig.add_subplot(2, 1, 1)
         ax2 = fig.add_subplot(2, 1, 2, sharex=ax1)
         cm = COLOR_MAP
-
         marker = "-"
+
+        extrema_R = [np.nan, np.nan]
         for idx, sensor in enumerate(self.sensors):
+            extrema_R = [
+                np.nanmin([extrema_R[0], np.min(sensor.R)]),
+                np.nanmax([extrema_R[1], np.max(sensor.R)]),
+            ]
             ax1.plot(
                 sensor.time,
                 sensor.R,
@@ -251,6 +351,13 @@ class ThermistorData:
         ax2.grid(True)
 
         fig.legend()
+        fig.suptitle(
+            f"{self.filename}\n\n"
+            f"{extrema_R[0]:.0f} \u03a9 \u2264 R \u2264 "
+            f"{extrema_R[1]:.0f} \u03a9\n"
+            f"{np.min(self.PT104):.1f} \u00b0C \u2264 T \u2264 "
+            f"{np.max(self.PT104):.1f} \u00b0C"
+        )
 
         if save_to_disk:
             file_parts = os.path.splitext(self.filepath)
@@ -258,3 +365,40 @@ class ThermistorData:
             fig.savefig(f"{file_parts[0]}.pdf")
 
         return fig
+
+
+# ------------------------------------------------------------------------------
+#   Ensemble
+# ------------------------------------------------------------------------------
+
+
+class Ensemble:
+    """Container for resistance `R [Ohm]` and temperature `T [K]` data to be
+    collected and processed as an ensemble.
+
+    NOTE: Temperature `T` is in units of Kelvin.
+
+    Args:
+        address (str):
+            Sensor address to which this ensemble belongs to. Useful for
+            naming the legend in a plot.
+    """
+
+    def __init__(self, address: str = ""):
+        self.address = address
+        """Sensor address to which this ensemble belongs to."""
+        self.R: npt.NDArray[np.float64] = np.array([])
+        """Resistance [Ohm]"""
+        self.T: npt.NDArray[np.float64] = np.array([])
+        """Temperature [K]"""
+
+    def append(self, R: npt.NDArray[np.float64], T: npt.NDArray[np.float64]):
+        """Append resistance `R [Ohm]` and temperature `T [K]` data to the
+        ensemble. The collected data gets automatically resorted in order of
+        increasing temperature."""
+        self.R = np.append(self.R, R)
+        self.T = np.append(self.T, T)
+
+        sorted_idx = np.argsort(self.T)
+        self.R = self.R[sorted_idx]
+        self.T = self.T[sorted_idx]
