@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Data analysis tools for post-processing the log files created by the
-Thermistor Logger control program, and for creating and reading in calibration
-reports.
+"""Tools for analysing the log files created by the Thermistor Logger control
+program, and for creating and handling calibration fit reports.
 
 Provides:
     * Constants
@@ -119,16 +118,14 @@ def perform_steinhart_hart_fit(
     Returns
     -------
         fit_report (`SteinhartHartFitReport`):
-            Steinhart-Hart coefficients (A, B, C).
+            Report containing the fit results, like the coefficients (A, B, C),
+            the calibrated temperature range and the rms error.
 
         fitted_temp_K (`np.ndarray[float]`):
-            Resulting temperature fit [K].
+            Resulting temperature fit [K] to the passed resistance data.
 
         residuals_temp_K (`np.ndarray[float]`):
             Temperature residuals from fit [K].
-
-        rmse (float):
-            Root-mean-square error of the temperature residuals [K].
     """
     params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
     coeffs = (params[0], params[1], params[2])  # Convert array to tuple
