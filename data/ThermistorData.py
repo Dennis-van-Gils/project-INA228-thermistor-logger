@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Data analysis tools for post-processing the log files created by the
-Thermistor Logger control program.
+Thermistor Logger control program, and for creating and reading in calibration
+reports.
 
 Provides:
-    * Classes
-        `INA228_Sensor()`
-        `ThermistorData()`
-        `Ensemble()`
+    * Constants
+        `ABS_ZERO_DEG_C`
+        `COLORMAP`
 
     * Methods
         `steinhart-hart()`
         `perform_steinhart_hart_fit()`
 
-    * Constants
-        `ABS_ZERO_DEG_C`
-        `COLORMAP`
+    * Classes
+        `SteinhartHartFitReport()`
+        `INA228_Sensor()`
+        `ThermistorData()`
+        `RT_Ensemble()`
 """
 
 __author__ = "Dennis van Gils"
@@ -26,15 +28,17 @@ __version__ = "1.0"
 
 import os
 import sys
+import re
+import json
 from pathlib import Path
 from tkinter import filedialog
-import re
+from datetime import datetime
 
 import numpy as np
 import numpy.typing as npt
-from scipy.optimize import curve_fit
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from scipy.optimize import curve_fit
 
 # plt.style.use("default")
 plt.style.use("dark_background")
@@ -54,6 +58,7 @@ COLOR_MAP = [
     [0.157, 0.980, 0.157],
     [0, 1, 1],
     [1, 0, 0.604],
+    [0.969, 0.667, 0.118],
     [1, 1, 1],
 ]
 """E.g., one color for each of the 4 sensor addresses, i.e. thermistors, plus
@@ -104,39 +109,181 @@ def perform_steinhart_hart_fit(
     T: npt.NDArray[np.float64],
     initial_guess: tuple[float, float, float] = (1e-3, 2e-4, 1e-7),
 ) -> tuple[
-    tuple[float, float, float],
+    SteinhartHartFitReport,
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
-    float,
 ]:
     """Perform a Steinhart-Hart fit to thermistor resistance `R [Ohm]` versus
     temperature `T [K]` data.
 
     Returns
     -------
-        coeffs (tuple[float, float, float]):
+        fit_report (`SteinhartHartFitReport`):
             Steinhart-Hart coefficients (A, B, C).
 
-        fitted_temp_K (np.ndarray[float]):
+        fitted_temp_K (`np.ndarray[float]`):
             Resulting temperature fit [K].
 
-        residuals_temp_K (np.ndarray[float]):
+        residuals_temp_K (`np.ndarray[float]`):
             Temperature residuals from fit [K].
 
         rmse (float):
             Root-mean-square error of the temperature residuals [K].
     """
     params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
-    coeffs = (params[0], params[1], params[2])
+    coeffs = (params[0], params[1], params[2])  # Convert array to tuple
 
-    # Compute fitted temperatures
     fitted_temp_K = np.asarray(steinhart_hart(R, coeffs))
-
-    # Residuals
     residuals_temp_K = fitted_temp_K - T
-    rmse = np.sqrt(np.mean(residuals_temp_K**2))
 
-    return coeffs, fitted_temp_K, residuals_temp_K, rmse
+    fit_report = SteinhartHartFitReport()
+    fit_report.coeffs = coeffs
+    fit_report.rmse = np.sqrt(np.mean(residuals_temp_K**2))
+    fit_report.calibrated_range_R = (np.min(R), np.max(R))
+    fit_report.calibrated_range_T = (
+        np.min(fitted_temp_K),
+        np.max(fitted_temp_K),
+    )
+
+    return fit_report, fitted_temp_K, residuals_temp_K
+
+
+# ------------------------------------------------------------------------------
+#   SteinhartHartFitReport
+# ------------------------------------------------------------------------------
+
+
+class SteinhartHartFitReport:
+    """TODO: Work in progress"""
+
+    def __init__(self, filepath: Path | str | None = None):
+        self.sensor_address: str = ""
+        """Address of the INA228 sensor to which a thermistor is connected"""
+
+        self.date_of_report: str = datetime.now().strftime("%y%m%d_%H%M%S")
+        """Date of report generation as %y%m%d_%H%M%S, e.g. 260515_150500
+        denoting year 2026, month 5, day 15, hour 15, minute 5, second 0."""
+
+        self.data_sources: list[str] = []
+        """List of filenames used as source for the fit"""
+
+        self.calibrated_range_T: tuple[float, float] = (np.nan, np.nan)
+        """Calibrated temperature range as (min, max) [K]"""
+
+        self.calibrated_range_R: tuple[float, float] = (np.nan, np.nan)
+        """Calibrated resistance range as (min, max) [Ohm]"""
+
+        self.coeffs: tuple[float, float, float] = (np.nan, np.nan, np.nan)
+        """Steinhart-Hart coefficients (A, B, C) resulting from the fit"""
+
+        self.rmse: float = np.nan
+        """Root-mean-square error of the temperature residuals to the fit [K]"""
+
+        if filepath is not None:
+            self.load_from_disk(filepath)
+
+    def __str__(self):
+        msg = (
+            "-------------------------\n"
+            "Steinhart-Hart fit report\n"
+            f"Thermistor {self.sensor_address}\n"
+            f"Date       {self.date_of_report}\n"
+            "-------------------------\n"
+            f"  {self.calibrated_range_T[0] + ABS_ZERO_IN_DEG_C:.1f} \u00b0C "
+            "\u2264 T \u2264 "
+            f"{self.calibrated_range_T[1] + ABS_ZERO_IN_DEG_C:.1f} \u00b0C\n"
+            f"  {self.calibrated_range_T[0]:.1f} K "
+            "\u2264 T \u2264 "
+            f"{self.calibrated_range_T[1]:.1f} K\n"
+            f"  {self.calibrated_range_R[0]:.0f} \u03a9 "
+            "\u2264 R \u2264 "
+            f"{self.calibrated_range_R[1]:.0f} \u03a9\n"
+            f"  A = {self.coeffs[0]:.5e}\n"
+            f"  B = {self.coeffs[1]:.5e}\n"
+            f"  C = {self.coeffs[2]:.5e}\n"
+            f"  RMSE: {self.rmse:.3f} K\n"
+            "  Data sources:\n"
+        )
+        for data_source in self.data_sources:
+            msg += f"    {data_source}\n"
+
+        return msg
+
+    def save_to_disk(self):
+        filepath = Path(
+            f"SteinhartHartFitReport_"
+            f"{self.sensor_address}_"
+            f"{self.date_of_report[:6]}.json"
+        )
+
+        payload = {
+            "sensor_address": self.sensor_address,
+            "date_of_report": self.date_of_report,
+            "calibrated_range_T": list(self.calibrated_range_T),
+            "calibrated_range_R": list(self.calibrated_range_R),
+            "coeffs": list(self.coeffs),
+            "rmse": self.rmse,
+            "data_sources": self.data_sources,
+        }
+
+        with filepath.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+
+        print(f"Saved fit report: {filepath}")
+
+    def load_from_disk(self, filepath: Path | str | None = None):
+        if filepath is None:
+            filepath = filedialog.askopenfilename(
+                filetypes=[("JSON Files", "*.json")],
+                title="Open Steinhart-Hart fit report",
+            )
+
+        if filepath is None or filepath == "." or filepath == "":
+            # User pressed cancel.
+            return
+
+        filepath = Path(filepath)
+        if not filepath.is_file():
+            raise IOError(f"File can not be found: {filepath}")
+
+        with filepath.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+
+        self.sensor_address = payload.get("sensor_address", "")
+        self.date_of_report = payload.get("date_of_report", self.date_of_report)
+        calibrated_range_T = payload.get("calibrated_range_T", [np.nan, np.nan])
+        self.calibrated_range_T = (
+            float(calibrated_range_T[0]),
+            float(calibrated_range_T[1]),
+        )
+        calibrated_range_R = payload.get("calibrated_range_R", [np.nan, np.nan])
+        self.calibrated_range_R = (
+            float(calibrated_range_R[0]),
+            float(calibrated_range_R[1]),
+        )
+        coeffs = payload.get("coeffs", [np.nan, np.nan, np.nan])
+        self.coeffs = (float(coeffs[0]), float(coeffs[1]), float(coeffs[2]))
+        self.rmse = float(payload.get("rmse", np.nan))
+        self.data_sources = [str(x) for x in payload.get("data_sources", [])]
+
+        print(f"Loaded fit report: {filepath}")
+
+    def suptitle(self) -> str:
+        """Return a formatted string containing the fit report, useful for
+        passing on to a matplotlib figure title."""
+        return (
+            f"Thermistor {self.sensor_address}\n"
+            f"{self.calibrated_range_R[0]:.0f} \u03a9 \u2264 R \u2264 "
+            f"{self.calibrated_range_R[1]:.0f} \u03a9, "
+            f"{self.calibrated_range_T[0] + ABS_ZERO_IN_DEG_C:.1f} "
+            f"\u00b0C \u2264 T \u2264 "
+            f"{self.calibrated_range_T[1] + ABS_ZERO_IN_DEG_C:.1f} "
+            f"\u00b0C\n"
+            f"fit: A={self.coeffs[0]:.5e}, "
+            f"B={self.coeffs[1]:.5e}, "
+            f"C={self.coeffs[2]:.5e}\n"
+            f"RMSE: {self.rmse:.3f} K"
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -343,7 +490,7 @@ class ThermistorData:
             self.time,
             self.PT104,
             marker,
-            color=cm[4],
+            color=cm[-1],
             label="PT104",
         )
         ax2.set_xlabel("Time (s)")
@@ -368,36 +515,44 @@ class ThermistorData:
 
 
 # ------------------------------------------------------------------------------
-#   Ensemble
+#   RT_Ensemble
 # ------------------------------------------------------------------------------
 
 
-class Ensemble:
+class RT_Ensemble:
     """Container for resistance `R [Ohm]` and temperature `T [K]` data to be
     collected and processed as an ensemble.
 
     NOTE: Temperature `T` is in units of Kelvin.
 
     Args:
-        address (str):
+        sensor_address (str):
             Sensor address to which this ensemble belongs to. Useful for
             naming the legend in a plot.
     """
 
-    def __init__(self, address: str = ""):
-        self.address = address
-        """Sensor address to which this ensemble belongs to."""
+    def __init__(self, sensor_address: str = ""):
+        self.sensor_address = sensor_address
+        """Sensor address to which this ensemble belongs to"""
+        self.data_sources: list[str] = []
+        """List of filenames used as source for the ensemble"""
         self.R: npt.NDArray[np.float64] = np.array([])
         """Resistance [Ohm]"""
         self.T: npt.NDArray[np.float64] = np.array([])
         """Temperature [K]"""
 
-    def append(self, R: npt.NDArray[np.float64], T: npt.NDArray[np.float64]):
+    def append(
+        self,
+        R: npt.NDArray[np.float64],
+        T: npt.NDArray[np.float64],
+        data_source: str = "",
+    ):
         """Append resistance `R [Ohm]` and temperature `T [K]` data to the
         ensemble. The collected data gets automatically resorted in order of
         increasing temperature."""
         self.R = np.append(self.R, R)
         self.T = np.append(self.T, T)
+        self.data_sources.append(data_source)
 
         sorted_idx = np.argsort(self.T)
         self.R = self.R[sorted_idx]

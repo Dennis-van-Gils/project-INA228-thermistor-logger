@@ -42,7 +42,6 @@ The bath temperature is set to a quasi-stationary ramps of 1 K / 10 min.
 
 Calibration 11-05-2026
 ----------------------
-
 Run 1: 11-05-2026
   Ramp 1
     Start temperature: 16 'C
@@ -64,7 +63,6 @@ Run 2: 12-05-2026
 
 Analysis 13-05-2026
 -------------------
-
 We divide the log files into separate single temperature ramps as such:
 
   Selection criteria:
@@ -72,14 +70,14 @@ We divide the log files into separate single temperature ramps as such:
 
   Log 260512_185755
   -----------------
-    Ramp 1: up              832 < t (s) < 14022
+    1: ramp up              832 < t (s) < 14022
 
   Log 260512_185755
   -----------------
-    Ramp 1: up             1220 < t (s) < 14407
-    Ramp 2: down          15740 < t (s) < 28917
-    Ramp 3: up            30004 < t (s) < 43210
-    Ramp 4: down          failed near the end, discard
+    1: ramp up             1220 < t (s) < 14407
+    2: ramp down          15740 < t (s) < 28917
+    3: ramp up            30004 < t (s) < 43210
+    4: ramp down          failed near the end, discard
 
 Findings after plotting results:
   Turns out that the down ramps have an offset with respect to the up ramps of
@@ -88,14 +86,16 @@ Findings after plotting results:
   temperature fluctuations inside of the temperature bath. The thermistors
   themselves were exposed directly to the water. This caused a thermal inertia
   of the PT104 probe with respect to the thermistors, causing the offset.
-  
+
   Solution:
   Redo the calibration, but now with the tip of PT104 probe directly exposed to
   the bath water, with the thermistors right next to the probe tip.
-  
+
 Calibration 14-05-2026
 ----------------------
-NOTE: Thermistor 0x41 broke. Got replaced.
+NOTE: Thermistor 0x41 malfunctioned when placing it back into the temperature
+bath; its resistance dropped to around 7 kOhm, whereas it should have been
+around 20 kOhm. Reason unknown. Got replaced with a new one.
 
 Run 1: 14-05-2026
   Ramp 1
@@ -108,3 +108,28 @@ Run 1: 14-05-2026
     Total ramp time = dT * 10 min = 240 min
   Repeat this cycle twice
   Afterwards: Soak temperature: 16 'C
+
+Analysis 15-05-2026
+-------------------
+We divide the log files into separate sections, cutting away any transients in
+the bath temperature regulation, as such:
+
+  Selection criteria ramp:
+    17 < PT104 ('C) < 39
+
+  Log 260514_154709
+  -----------------
+    1: ramp up              840 < t (s) < 14032
+    2: ramp down          15352 < t (s) < 28522
+    3: ramp up            29625 < t (s) < 42840
+    4: ramp down          44160 < t (s) < 57320
+    5: constant 16'C      58400 < t (s) < 71657    Extra: Testing for drift
+
+Findings after plotting results:
+  Excellent results. Calibration procedure is correct now, because there is no
+  more discernible thermal lag between the PT100 probe and the thermistors.
+
+  Overall root-mean-square error (RMSE) of the temperature fit residuals is
+  approx. +/- 40 mK.
+
+  No drift is discernible over 3 hours of a constant 16 'C.
