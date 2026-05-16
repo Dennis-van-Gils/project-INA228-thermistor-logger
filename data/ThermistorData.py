@@ -154,7 +154,8 @@ def perform_steinhart_hart_fit(
 
 
 class SteinhartHartFitReport:
-    """Container for Steinhart-Hart fit metadata and coefficients.
+    """Container for Steinhart-Hart fit metadata and coefficients belonging to
+    a specific INA228 sensor to which a thermistor is connected.
 
     Parameters
     ----------
@@ -165,12 +166,12 @@ class SteinhartHartFitReport:
     Attributes
     ----------
     sensor_address : str
-        INA228 sensor address for the thermistor.
+        Address of the INA228 sensor to which the thermistor is connected.
     date_of_report : str
-        Report timestamp formatted as ``%y%m%d_%H%M%S``, e.g. 260515_150500
+        Date of report generation as ``%y%m%d_%H%M%S``, e.g. 260515_150500
         denoting year 2026, month 5, day 15, hour 15, minute 5, second 0.
     data_sources : list of str
-        Source filenames used for the fit.
+        List of filenames used as source for the fit.
     calibrated_range_T : tuple[float, float]
         Calibrated temperature range ``(min, max)`` in Kelvin.
     calibrated_range_R : tuple[float, float]
@@ -183,26 +184,26 @@ class SteinhartHartFitReport:
 
     def __init__(self, filepath: Path | str | None = None):
         self.sensor_address: str = ""
-        """Address of the INA228 sensor to which a thermistor is connected"""
+        """Address of the INA228 sensor to which the thermistor is connected."""
 
         self.date_of_report: str = datetime.now().strftime("%y%m%d_%H%M%S")
-        """Date of report generation as %y%m%d_%H%M%S, e.g. 260515_150500
+        """Date of report generation as ``%y%m%d_%H%M%S``, e.g. 260515_150500
         denoting year 2026, month 5, day 15, hour 15, minute 5, second 0."""
 
         self.data_sources: list[str] = []
-        """List of filenames used as source for the fit"""
+        """List of filenames used as source for the fit."""
 
         self.calibrated_range_T: tuple[float, float] = (np.nan, np.nan)
-        """Calibrated temperature range as (min, max) [K]"""
+        """Calibrated temperature range ``(min, max)`` in Kelvin."""
 
         self.calibrated_range_R: tuple[float, float] = (np.nan, np.nan)
-        """Calibrated resistance range as (min, max) [Ohm]"""
+        """Calibrated resistance range ``(min, max)`` in Ohm."""
 
         self.coeffs: tuple[float, float, float] = (np.nan, np.nan, np.nan)
-        """Steinhart-Hart coefficients (A, B, C) resulting from the fit"""
+        """Fitted Steinhart-Hart coefficients ``(A, B, C)``."""
 
         self.rmse: float = np.nan
-        """Root-mean-square error of the temperature residuals to the fit [K]"""
+        """Root-mean-square residual error in Kelvin."""
 
         if filepath is not None:
             self.read_file(filepath)
@@ -347,33 +348,33 @@ class INA228_Sensor:
     time : numpy.ndarray of float64
         Time values in seconds.
     R : numpy.ndarray of float64
-        Resistance values in Ohm.
+        Resistance timeseries in Ohm.
     I : numpy.ndarray of float64
-        Current values in Ampere.
+        Current timeseries in Ampere.
     V : numpy.ndarray of float64
-        Voltage values in Volt.
+        Voltage timeseries in Volt.
     T_die : numpy.ndarray of float64
-        INA228 die temperature values in degree Celsius.
+        INA228 die temperature timeseries in degree Celsius.
     """
 
     def __init__(self):
         self.address: str = ""
-        """Sensor address as hex string"""
+        """Sensor address represented as a hexadecimal string."""
 
         self.time: npt.NDArray[np.float64] = np.array([])
-        """Time [s]"""
+        """Time [s]."""
 
         self.R: npt.NDArray[np.float64] = np.array([])
-        """Resistance timeseries [Ohm]"""
+        """Resistance timeseries [Ohm]."""
 
         self.I: npt.NDArray[np.float64] = np.array([])
-        """Current timeseries [I]"""
+        """Current timeseries [I]."""
 
         self.V: npt.NDArray[np.float64] = np.array([])
-        """Voltage timeseries [V]"""
+        """Voltage timeseries [V]."""
 
         self.T_die: npt.NDArray[np.float64] = np.array([])
-        """Die temperature timeseries of the INA228 chip ['C]"""
+        """INA228 die temperature timeseries ['C]."""
 
 
 # ------------------------------------------------------------------------------
@@ -403,7 +404,7 @@ class ThermistorData:
     sensor_addresses : list of str
         INA228 sensor addresses found in the header.
     N_sensors : int
-        Number of INA228 sensors represented in the data.
+        Number of INA228 sensors/thermistors represented in the data.
     sensors : list of INA228_Sensor
         Per-sensor containers. Each container holds timeseries data from one
         INA228 sensor to which a thermistor is connected.
@@ -415,22 +416,23 @@ class ThermistorData:
 
     def __init__(self, filepath: Path | str | None = None):
         self.filepath: str = ""
-        """Full file path"""
+        """Full path to the loaded file."""
 
         self.filename: str = ""
-        """Filename without extension"""
+        """Filename stem of the loaded file."""
 
         self.header: list[str] = []
-        """Header lines"""
+        """Header lines read from the file."""
 
         self.sensor_addresses: list[str] = []
-        """List of INA228 sensor addresses connected to the Arduino"""
+        """INA228 sensor addresses found in the header."""
 
         self.N_sensors: int = 0
-        """Number of INA228 sensors/thermistors connected to the Arduino"""
+        """Number of INA228 sensors/thermistors represented in the data."""
 
         self.sensors: list[INA228_Sensor] = []
-        """List of all INA228 sensors, each containing timeseries data."""
+        """Per-sensor containers. Each container holds timeseries data from one
+        INA228 sensor to which a thermistor is connected."""
 
         self.time: npt.NDArray[np.float64] = np.array([])
         """Time [s]"""
@@ -625,9 +627,9 @@ class RT_Ensemble:
 
     def __init__(self, sensor_address: str = ""):
         self.sensor_address = sensor_address
-        """Sensor address to which this ensemble belongs to"""
+        """Sensor address associated with this ensemble."""
         self.data_sources: list[str] = []
-        """List of filenames used as source for the ensemble"""
+        """Filenames from which appended data originated."""
         self.R: npt.NDArray[np.float64] = np.array([])
         """Resistance [Ohm]"""
         self.T: npt.NDArray[np.float64] = np.array([])
