@@ -26,7 +26,6 @@ __date__ = "12-05-2026"
 __version__ = "1.0"
 
 import os
-import sys
 import re
 import json
 from pathlib import Path
@@ -113,7 +112,7 @@ def perform_steinhart_hart_fit(
     npt.NDArray[np.float64],
 ]:
     """Perform a Steinhart-Hart fit to thermistor resistance `R [Ohm]` versus
-    temperature `T [K]` data.
+    temperature `T [K]` data using a non-linear least squares fit.
 
     Returns
     -------
@@ -151,7 +150,43 @@ def perform_steinhart_hart_fit(
 
 
 class SteinhartHartFitReport:
-    """TODO: Work in progress"""
+    """Report containing the fit results to the Steinhart-Hart equation.
+
+    Args:
+        filepath (`pathlib.Path` | `str` | `None`, optional):
+            Path to a previously saved JSON fit report to import. When omitted,
+            an empty fit report will be returned.
+
+    Main attributes:
+        sensor_address (`str`):
+            Address of the INA228 sensor to which a thermistor is connected.
+
+        date_of_report (`str`):
+            Date of report generation as %y%m%d_%H%M%S, e.g. 260515_150500
+            denoting year 2026, month 5, day 15, hour 15, minute 5, second 0.
+
+        data_sources (`list[str]`):
+            List of filenames used as source for the fit.
+
+        calibrated_range_T (`tuple[float, float]`):
+            Calibrated temperature range as (min, max) [K].
+
+        calibrated_range_R (`tuple[float, float]`):
+            Calibrated resistance range as (min, max) [Ohm].
+
+        coeffs (`tuple[float, float, float]`):
+            Steinhart-Hart coefficients (A, B, C) resulting from the fit.
+
+        rmse (`float`):
+            Root-mean-square error of the temperature residuals to the fit [K].
+
+    Methods:
+        save_file()
+
+        read_file()
+
+        suptitle()
+    """
 
     def __init__(self, filepath: Path | str | None = None):
         self.sensor_address: str = ""
@@ -177,7 +212,7 @@ class SteinhartHartFitReport:
         """Root-mean-square error of the temperature residuals to the fit [K]"""
 
         if filepath is not None:
-            self.load_from_disk(filepath)
+            self.read_file(filepath)
 
     def __str__(self):
         msg = (
@@ -206,7 +241,10 @@ class SteinhartHartFitReport:
 
         return msg
 
-    def save_to_disk(self):
+    def save_file(self):
+        """Save the fit report to a JSON file on disk, automatically named as
+        `SteinhartHartFitReport_{sensor_address}_{date}.json`.
+        """
         filepath = Path(
             f"SteinhartHartFitReport_"
             f"{self.sensor_address}_"
@@ -228,22 +266,27 @@ class SteinhartHartFitReport:
 
         print(f"Saved fit report: {filepath}")
 
-    def load_from_disk(self, filepath: Path | str | None = None):
-        if filepath is None:
+    def read_file(self, filepath: Path | str | None = None):
+        """Read in a JSON fit report file from disk.
+
+        Args:
+            filepath (`pathlib.Path` | `str` | `None`, optional):
+                Path to the file to open. Opens a file browser when omitted.
+        """
+        if filepath == "" or filepath is None:
             filepath = filedialog.askopenfilename(
                 filetypes=[("JSON Files", "*.json")],
                 title="Open Steinhart-Hart fit report",
             )
-
-        if filepath is None or filepath == "." or filepath == "":
-            # User pressed cancel.
-            return
+            if filepath is None or filepath == "." or filepath == "":
+                # User pressed cancel.
+                return
 
         filepath = Path(filepath)
         if not filepath.is_file():
             raise IOError(f"File can not be found: {filepath}")
 
-        with filepath.open("r", encoding="utf-8") as f:
+        with filepath.open(encoding="utf-8") as f:
             payload = json.load(f)
 
         self.sensor_address = payload.get("sensor_address", "")
@@ -331,7 +374,7 @@ class ThermistorData:
         sensor_addresses (`list[str]`):
             List of INA228 sensor addresses connected to the Arduino.
 
-        N_sensors (int):
+        N_sensors (`int`):
             Number of INA228 sensors connected to the Arduino.
 
         sensors (`list[INA228_Sensor]`):
@@ -398,11 +441,9 @@ class ThermistorData:
             )
             if filepath is None or filepath == "." or filepath == "":
                 # User pressed cancel.
-                sys.exit(0)
+                return
 
-        if isinstance(filepath, str):
-            filepath = Path(filepath)
-
+        filepath = Path(filepath)
         if not filepath.is_file():
             raise IOError(f"File can not be found: {filepath}")
 
@@ -523,7 +564,7 @@ class RT_Ensemble:
     NOTE: Temperature `T` is in units of Kelvin.
 
     Args:
-        sensor_address (str):
+        sensor_address (`str`):
             Sensor address to which this ensemble belongs to. Useful for
             naming the legend in a plot.
     """

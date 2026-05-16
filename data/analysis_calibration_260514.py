@@ -102,7 +102,7 @@ for sensor_idx, ensemble in enumerate(ensembles):
 
     fit_report.sensor_address = ensemble.sensor_address
     fit_report.data_sources = ensemble.data_sources
-    fit_report.save_to_disk()
+    fit_report.save_file()
     fit_reports.append(fit_report)
     print(fit_report)
 
