@@ -1,22 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tools for analysing the log files created by the Thermistor Logger control
-program, and for creating and handling calibration fit reports.
+"""Tools to analyse Thermistor Logger files, and to create and handle
+calibration fit reports.
 
-Provides:
-    * Constants
-        `ABS_ZERO_DEG_C`
-        `COLORMAP`
+This module provides:
 
-    * Methods
-        `steinhart-hart()`
-        `perform_steinhart_hart_fit()`
-
-    * Classes
-        `SteinhartHartFitReport()`
-        `INA228_Sensor()`
-        `ThermistorData()`
-        `RT_Ensemble()`
+- Data containers for log files and fit reports.
+- Steinhart-Hart model and fitting helpers.
 """
 
 __author__ = "Dennis van Gils"
@@ -74,15 +64,30 @@ def steinhart_hart(
     B: float = np.nan,
     C: float = np.nan,
 ) -> float | npt.NDArray[np.float64]:
-    """Steinhart-Hart equation relating thermistor resistance `R [Ohm]` to
-    temperature `T [K]`:
+    """Evaluate the Steinhart-Hart temperature equation.
 
-        T = 1 / [ A + B * ln(R) + C * (ln(R))^3 ],
+    The equation relates thermistor resistance ``R`` to temperature ``T`` in
+    Kelvin:
 
-    where `A`, `B` and `C` are the Steinhart-Hart coefficients.
+    ``T = 1 / (A + B * ln(R) + C * ln(R)^3)``.
 
-    Returns:
-        Temperature T [K]
+    Parameters
+    ----------
+    R : float or numpy.ndarray of float64
+        Thermistor resistance in Ohm.
+    A : float or tuple[float, float, float] or numpy.ndarray of float64
+        Either coefficient ``A`` or a sequence ``(A, B, C)``.
+    B : float, default numpy.nan
+        Coefficient ``B``. Ignored when ``A`` is passed as a 3-element
+        sequence.
+    C : float, default numpy.nan
+        Coefficient ``C``. Ignored when ``A`` is passed as a 3-element
+        sequence.
+
+    Returns
+    -------
+    float or numpy.ndarray of float64
+        Temperature in Kelvin.
     """
     if isinstance(A, (tuple, np.ndarray)):
         coeff_A = A[0]
@@ -111,20 +116,26 @@ def perform_steinhart_hart_fit(
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
 ]:
-    """Perform a Steinhart-Hart fit to thermistor resistance `R [Ohm]` versus
-    temperature `T [K]` data using a non-linear least squares fit.
+    """Fit Steinhart-Hart coefficients to resistance-temperature data.
+
+    Parameters
+    ----------
+    R : numpy.ndarray of float64
+        Thermistor resistance values in Ohm.
+    T : numpy.ndarray of float64
+        Reference temperatures in Kelvin.
+    initial_guess : tuple[float, float, float], default (1e-3, 2e-4, 1e-7)
+        Initial guess for coefficients ``(A, B, C)``.
 
     Returns
     -------
-        fit_report (`SteinhartHartFitReport`):
-            Report containing the fit results, like the coefficients (A, B, C),
-            the calibrated temperature range and the rms error.
-
-        fitted_temp_K (`np.ndarray[float]`):
-            Resulting temperature fit [K] to the passed resistance data.
-
-        residuals_temp_K (`np.ndarray[float]`):
-            Temperature residuals from fit [K].
+    fit_report : SteinhartHartFitReport
+        Fit report containing coefficients, calibrated ranges, RMSE, and
+        metadata placeholders.
+    fitted_temp_K : numpy.ndarray of float64
+        Modeled temperatures in Kelvin evaluated at input ``R``.
+    residuals_temp_K : numpy.ndarray of float64
+        Fit residuals in Kelvin, defined as ``fitted_temp_K - T``.
     """
     params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
     coeffs = (params[0], params[1], params[2])  # Convert array to tuple
@@ -150,42 +161,31 @@ def perform_steinhart_hart_fit(
 
 
 class SteinhartHartFitReport:
-    """Report containing the fit results to the Steinhart-Hart equation.
+    """Container for Steinhart-Hart fit metadata and coefficients.
 
-    Args:
-        filepath (`pathlib.Path` | `str` | `None`, optional):
-            Path to a previously saved JSON fit report to import. When omitted,
-            an empty fit report will be returned.
+    Parameters
+    ----------
+    filepath : pathlib.Path or str or None, optional
+        Path to an existing JSON fit report to load. If omitted, an empty
+        report instance is created.
 
-    Main attributes:
-        sensor_address (`str`):
-            Address of the INA228 sensor to which a thermistor is connected.
-
-        date_of_report (`str`):
-            Date of report generation as %y%m%d_%H%M%S, e.g. 260515_150500
-            denoting year 2026, month 5, day 15, hour 15, minute 5, second 0.
-
-        data_sources (`list[str]`):
-            List of filenames used as source for the fit.
-
-        calibrated_range_T (`tuple[float, float]`):
-            Calibrated temperature range as (min, max) [K].
-
-        calibrated_range_R (`tuple[float, float]`):
-            Calibrated resistance range as (min, max) [Ohm].
-
-        coeffs (`tuple[float, float, float]`):
-            Steinhart-Hart coefficients (A, B, C) resulting from the fit.
-
-        rmse (`float`):
-            Root-mean-square error of the temperature residuals to the fit [K].
-
-    Methods:
-        save_file()
-
-        read_file()
-
-        suptitle()
+    Attributes
+    ----------
+    sensor_address : str
+        INA228 sensor address for the thermistor.
+    date_of_report : str
+        Report timestamp formatted as ``%y%m%d_%H%M%S``, e.g. 260515_150500
+        denoting year 2026, month 5, day 15, hour 15, minute 5, second 0.
+    data_sources : list of str
+        Source filenames used for the fit.
+    calibrated_range_T : tuple[float, float]
+        Calibrated temperature range ``(min, max)`` in Kelvin.
+    calibrated_range_R : tuple[float, float]
+        Calibrated resistance range ``(min, max)`` in Ohm.
+    coeffs : tuple[float, float, float]
+        Fitted Steinhart-Hart coefficients ``(A, B, C)``.
+    rmse : float
+        Root-mean-square residual error in Kelvin.
     """
 
     def __init__(self, filepath: Path | str | None = None):
@@ -242,8 +242,13 @@ class SteinhartHartFitReport:
         return msg
 
     def save_file(self):
-        """Save the fit report to a JSON file on disk, automatically named as
-        `SteinhartHartFitReport_{sensor_address}_{date}.json`.
+        """Write the fit report to a JSON file.
+
+        Notes
+        -----
+        The output filename is formatted as
+        ``SteinhartHartFitReport_{sensor_address}_{date}.json`` where ``date``
+        uses the first 6 characters of ``date_of_report``.
         """
         filepath = Path(
             f"SteinhartHartFitReport_"
@@ -267,11 +272,12 @@ class SteinhartHartFitReport:
         print(f"Saved fit report: {filepath}")
 
     def read_file(self, filepath: Path | str | None = None):
-        """Read in a JSON fit report file from disk.
+        """Read fit report fields from a JSON file.
 
-        Args:
-            filepath (`pathlib.Path` | `str` | `None`, optional):
-                Path to the file to open. Opens a file browser when omitted.
+        Parameters
+        ----------
+        filepath : pathlib.Path or str or None, optional
+            Path to the report file. If omitted, a file dialog is shown.
         """
         if filepath == "" or filepath is None:
             filepath = filedialog.askopenfilename(
@@ -309,8 +315,14 @@ class SteinhartHartFitReport:
         print(f"Loaded fit report: {filepath}")
 
     def suptitle(self) -> str:
-        """Return a formatted string containing the fit report, useful for
-        passing on to a matplotlib figure title."""
+        """Build a multi-line summary string for figure titles.
+
+        Returns
+        -------
+        str
+            Formatted fit summary with calibrated ranges, coefficients, and
+            RMSE.
+        """
         return (
             f"Thermistor {self.sensor_address}\n"
             f"{self.calibrated_range_R[0]:.0f} \u03a9 \u2264 R \u2264 "
@@ -332,8 +344,24 @@ class SteinhartHartFitReport:
 
 
 class INA228_Sensor:
-    """Container for the timeseries data of a single INA228 sensor to which a
-    thermistor is connected."""
+    """Container for timeseries data from one INA228 thermistor channel to which
+    a thermistor is connected.
+
+    Attributes
+    ----------
+    address : str
+        Sensor address represented as a hexadecimal string.
+    time : numpy.ndarray of float64
+        Time values in seconds.
+    R : numpy.ndarray of float64
+        Resistance values in Ohm.
+    I : numpy.ndarray of float64
+        Current values in Ampere.
+    V : numpy.ndarray of float64
+        Voltage values in Volt.
+    T_die : numpy.ndarray of float64
+        INA228 die temperature values in degree Celsius.
+    """
 
     def __init__(self):
         self.address: str = ""
@@ -363,35 +391,33 @@ class INA228_Sensor:
 class ThermistorData:
     """Manages the data as logged to file by the Thermistor Logger control
     program. Contains the timeseries data of all thermistors in member
-    `sensors`, and contains the timeseries data of the optional Picotech
-    PT-104 temperature probe in member `PT104`.
+    ``sensors``, and contains the timeseries data of the optional Picotech
+    PT-104 temperature probe in member ``PT104``.
 
-    Args:
-        filepath (`pathlib.Path` | `str` | `None`, optional):
-            Path to the log file to open. Opens a file browser when omitted.
+    Parameters
+    ----------
+    filepath : pathlib.Path or str or None, optional
+        Path to a logger text file. If omitted, a file dialog is shown.
 
-    Main attributes:
-        sensor_addresses (`list[str]`):
-            List of INA228 sensor addresses connected to the Arduino.
-
-        N_sensors (`int`):
-            Number of INA228 sensors connected to the Arduino.
-
-        sensors (`list[INA228_Sensor]`):
-            List of all INA228 sensors, each containing timeseries data.
-
-        time (`numpy.ndarray[float])`):
-            Time stamp [s].
-
-        PT104 (`numpy.ndarray[float])`):
-            Temperature timeseries ['C] as logged by the optional Picotech
-            PT-104 probe ['C]. This is a PT100 logger with 0.001 K resolution
-            and 0.015 K accuracy.
-
-    Methods:
-        read_file()
-
-        quick_plot()
+    Attributes
+    ----------
+    filepath : str
+        Full path to the loaded file.
+    filename : str
+        Filename stem of the loaded file.
+    header : list of str
+        Header lines read from the file.
+    sensor_addresses : list of str
+        INA228 sensor addresses found in the header.
+    N_sensors : int
+        Number of INA228 sensors represented in the data.
+    sensors : list of INA228_Sensor
+        Per-sensor containers. Each container holds timeseries data from one
+        INA228 sensor to which a thermistor is connected.
+    time : numpy.ndarray of float64
+        Common time vector in seconds, shifted to start at zero.
+    PT104 : numpy.ndarray of float64
+        PT-104 reference temperatures in degree Celsius.
     """
 
     def __init__(self, filepath: Path | str | None = None):
@@ -428,11 +454,24 @@ class ThermistorData:
     # --------------------------------------------------------------------------
 
     def read_file(self, filepath: Path | str | None = None):
-        """Read in a log file acquired by the Thermistor Logger control program.
+        """Load in a log file acquired by the Thermistor Logger control program
+        into this instance.
 
-        Args:
-            filepath (`pathlib.Path` | `str` | `None`, optional):
-                Path to the log file to open. Opens a file browser when omitted.
+        Parameters
+        ----------
+        filepath : pathlib.Path or str or None, optional
+            Path to the log file. If omitted, a file dialog is shown.
+
+        Raises
+        ------
+        IOError
+            If the provided file does not exist.
+        TypeError
+            If file decoding fails due to unexpected text encoding.
+        ValueError
+            If numeric parsing fails because the file format is invalid.
+        IndexError
+            If required data columns are missing.
         """
         if filepath == "" or filepath is None:
             filepath = filedialog.askopenfilename(
@@ -497,8 +536,20 @@ class ThermistorData:
     # --------------------------------------------------------------------------
 
     def quick_plot(self, save_to_disk: bool = False) -> Figure:
-        """Plot the timeseries of the thermistors for quick inspection and
-        optionally save the plot as image to disk."""
+        """Create a quick timeseries plot of the thermistor resistances and
+        reference temperature.
+
+        Parameters
+        ----------
+        save_to_disk : bool, default False
+            If ``True``, save the plot as PNG and PDF files next to the loaded
+            data file.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The created matplotlib figure.
+        """
 
         fig = plt.figure(figsize=(16, 10), dpi=90)
         ax1 = fig.add_subplot(2, 1, 1)
@@ -558,15 +609,28 @@ class ThermistorData:
 
 
 class RT_Ensemble:
-    """Container for resistance `R [Ohm]` and temperature `T [K]` data to be
+    """Container for resistance ``R`` and temperature ``T`` data to be
     collected and processed as an ensemble.
 
-    NOTE: Temperature `T` is in units of Kelvin.
+    Notes
+    -----
+    Temperature values are stored in Kelvin.
 
-    Args:
-        sensor_address (`str`):
-            Sensor address to which this ensemble belongs to. Useful for
-            naming the legend in a plot.
+    Parameters
+    ----------
+    sensor_address : str, default ""
+        Sensor address associated with this ensemble.
+
+    Attributes
+    ----------
+    sensor_address : str
+        Sensor address associated with this ensemble.
+    data_sources : list of str
+        Filenames from which appended data originated.
+    R : numpy.ndarray of float64
+        Resistance values in Ohm.
+    T : numpy.ndarray of float64
+        Temperature values in Kelvin.
     """
 
     def __init__(self, sensor_address: str = ""):
@@ -585,9 +649,17 @@ class RT_Ensemble:
         T: npt.NDArray[np.float64],
         data_source: str = "",
     ):
-        """Append resistance `R [Ohm]` and temperature `T [K]` data to the
-        ensemble. The collected data gets automatically resorted in order of
-        increasing temperature."""
+        """Append resistance-temperature data and sort by temperature.
+
+        Parameters
+        ----------
+        R : numpy.ndarray of float64
+            Resistance values in Ohm.
+        T : numpy.ndarray of float64
+            Temperature values in Kelvin.
+        data_source : str, default ""
+            Optional filename or label for the appended data.
+        """
         self.R = np.append(self.R, R)
         self.T = np.append(self.T, T)
         self.data_sources.append(data_source)
