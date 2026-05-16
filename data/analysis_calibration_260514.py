@@ -19,6 +19,12 @@ if 0:
     plt.show()
 
 # Plot lay-out
+# plt.style.use("default")
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "gray"
+plt.rcParams["font.size"] = 12
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 14
 linestyle_args = {
     "marker": ".",
     "linestyle": "none",

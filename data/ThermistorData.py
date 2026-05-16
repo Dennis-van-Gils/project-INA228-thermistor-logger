@@ -28,13 +28,6 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from scipy.optimize import curve_fit
 
-# plt.style.use("default")
-plt.style.use("dark_background")
-plt.rcParams["grid.color"] = "gray"
-plt.rcParams["font.size"] = 12
-plt.rcParams["axes.titlesize"] = 14
-plt.rcParams["axes.labelsize"] = 14
-
 # ------------------------------------------------------------------------------
 #   Constants
 # ------------------------------------------------------------------------------
@@ -49,8 +42,8 @@ COLOR_MAP = [
     [0.969, 0.667, 0.118],
     [1, 1, 1],
 ]
-"""E.g., one color for each of the 4 sensor addresses, i.e. thermistors, plus
-the color for the PT104 temperature curve."""
+"""First 4 are for each of the 4 sensor addresses, i.e. thermistors, 5th is for
+extra, and the last is the color for the PT104 reference temperature curve."""
 
 
 # ------------------------------------------------------------------------------
@@ -554,8 +547,6 @@ class ThermistorData:
         fig = plt.figure(figsize=(16, 10), dpi=90)
         ax1 = fig.add_subplot(2, 1, 1)
         ax2 = fig.add_subplot(2, 1, 2, sharex=ax1)
-        cm = COLOR_MAP
-        marker = "-"
 
         extrema_R = [np.nan, np.nan]
         for idx, sensor in enumerate(self.sensors):
@@ -566,20 +557,19 @@ class ThermistorData:
             ax1.plot(
                 sensor.time,
                 sensor.R,
-                marker,
-                color=cm[idx],
+                "-",
+                color=COLOR_MAP[idx],
                 label=sensor.address,
             )
         ax1.set_xlabel("Time (s)")
         ax1.set_ylabel("R (\u03a9)")
         ax1.grid(True)
 
-        marker = "-"
         ax2.plot(
             self.time,
             self.PT104,
-            marker,
-            color=cm[-1],
+            "-",
+            color=COLOR_MAP[-1],
             label="PT104",
         )
         ax2.set_xlabel("Time (s)")
