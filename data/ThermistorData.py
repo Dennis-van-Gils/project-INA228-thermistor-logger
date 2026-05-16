@@ -306,8 +306,6 @@ class SteinhartHartFitReport:
         self.rmse = float(payload.get("rmse", np.nan))
         self.data_sources = [str(x) for x in payload.get("data_sources", [])]
 
-        print(f"Loaded fit report: {filepath}")
-
     def suptitle(self) -> str:
         """Build a multi-line summary string for figure titles.
 
