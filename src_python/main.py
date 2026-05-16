@@ -15,6 +15,7 @@ __version__ = "1.0"
 
 import os
 import sys
+from pathlib import Path
 
 import qtpy
 from qtpy import QtCore, QtGui, QtWidgets as QtWid
@@ -43,6 +44,17 @@ from ThermistorLoggerArduino import (
     ThermistorLoggerTelnet,
 )
 from ThermistorLoggerArduino_qdev import ThermistorLoggerArduino_qdev
+
+# Ensure we can import sibling package `data` when running this script directly.
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from data.ThermistorData import (  # type: ignore
+    ABS_ZERO_IN_DEG_C,
+    SteinhartHartFitReport,
+    steinhart_hart,
+)
 
 # Constants
 CHART_CAPACITY = int(1e4)  # [number of points]
@@ -89,6 +101,90 @@ def current_date_time_strings():
     )
 
 
+def scan_fit_reports(
+    folder: Path,
+) -> dict[str, SteinhartHartFitReport]:
+    """Load Steinhart-Hart fit reports keyed by sensor address."""
+    reports_by_address: dict[str, SteinhartHartFitReport] = {}
+
+    if not folder.is_dir():
+        print(f"Fit reports folder not found: {folder}")
+        return reports_by_address
+
+    report_paths = sorted(folder.glob("SteinhartHartFitReport*.json"))
+    if not report_paths:
+        print(f"No fit reports found in: {folder}")
+        return reports_by_address
+
+    for report_path in report_paths:
+        try:
+            fit_report = SteinhartHartFitReport(report_path)
+            sensor_address = fit_report.sensor_address.strip()
+            if sensor_address:
+                reports_by_address[sensor_address] = fit_report
+                print(
+                    "Loaded fit report "
+                    f"{report_path.name} for sensor {sensor_address}"
+                )
+        except Exception as err:  # pylint: disable=broad-except
+            print(f"Could not load fit report {report_path.name}: {err}")
+
+    return reports_by_address
+
+
+def resistance_to_temperature_degC(
+    resistance_ohm: np.ndarray,
+    fit_report: SteinhartHartFitReport,
+    warned_addresses: set[str] | None = None,
+    sample_time_s: float | None = None,
+) -> np.ndarray:
+    """Convert thermistor resistance to temperature in degree Celsius."""
+    temp_degC = np.full_like(resistance_ohm, np.nan, dtype=float)
+    finite_positive = np.isfinite(resistance_ohm) & (resistance_ohm > 0)
+    valid = finite_positive.copy()
+
+    range_min, range_max = fit_report.calibrated_range_R
+    range_is_valid = (
+        np.isfinite(range_min)
+        and np.isfinite(range_max)
+        and (range_min <= range_max)
+    )
+    if range_is_valid:
+        valid &= (resistance_ohm >= range_min) & (resistance_ohm <= range_max)
+
+        out_of_range = finite_positive & ~valid
+        if np.any(out_of_range):
+            sensor_address = fit_report.sensor_address or "<unknown>"
+            should_warn = (
+                warned_addresses is None
+                or sensor_address not in warned_addresses
+            )
+            if should_warn:
+                str_cur_date, str_cur_time = current_date_time_strings()
+                sample_info = (
+                    f", sample t={sample_time_s:.3f} s"
+                    if sample_time_s is not None
+                    else ""
+                )
+                print(
+                    "Out-of-calibration resistance detected for "
+                    f"sensor {sensor_address} at {str_cur_date} "
+                    f"{str_cur_time}{sample_info}."
+                )
+                if warned_addresses is not None:
+                    warned_addresses.add(sensor_address)
+
+    if not np.any(valid):
+        return temp_degC
+
+    temp_kelvin = np.asarray(
+        steinhart_hart(resistance_ohm[valid], fit_report.coeffs),
+        dtype=float,
+    )
+    temp_degC[valid] = temp_kelvin + ABS_ZERO_IN_DEG_C
+    return temp_degC
+
+
 # ------------------------------------------------------------------------------
 #   MainWindow
 # ------------------------------------------------------------------------------
@@ -110,6 +206,15 @@ class MainWindow(QtWid.QWidget):
         self.qdev_pt104 = qdev_pt104
         self.qlog = qlog
         self.sensors = self.qdev.dev.state.sensors  # Shorthand
+        self.fit_reports_by_address = scan_fit_reports(
+            Path(__file__).resolve().parent / "fit_reports"
+        )
+        self.warned_out_of_calibration_addresses: set[str] = set()
+        self.calibrated_sensor_addresses = [
+            sensor.address
+            for sensor in self.sensors
+            if sensor.address in self.fit_reports_by_address
+        ]
 
         self.do_update_readings_GUI = True
         """Update the GUI elements corresponding to the Arduino readings, like
@@ -161,10 +266,24 @@ class MainWindow(QtWid.QWidget):
         # pylint: disable-next=E1101
         self.qpbt_record.clicked.connect(lambda state: qlog.record(state))
 
+        self.qlbl_calibration_status = QtWid.QLabel()
+        self.qlbl_calibration_status.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignCenter
+        )
+        self.qlbl_calibration_status.setWordWrap(True)
+        if self.calibrated_sensor_addresses:
+            self.qlbl_calibration_status.setText(
+                "Calibration loaded for: "
+                + ", ".join(self.calibrated_sensor_addresses)
+            )
+        else:
+            self.qlbl_calibration_status.setText("Calibration loaded for: none")
+
         vbox_middle = QtWid.QVBoxLayout()
         vbox_middle.addWidget(self.qlbl_title)
         vbox_middle.addWidget(self.qlbl_cur_date_time)
         vbox_middle.addWidget(self.qpbt_record)
+        vbox_middle.addWidget(self.qlbl_calibration_status)
 
         # Right box
         p = {
@@ -260,6 +379,9 @@ class MainWindow(QtWid.QWidget):
         self.tscurves_T: list[ThreadSafeCurve] = []
         """List of ThreadSafeCurves `Temperature: T`"""
 
+        self.tscurves_T_thermistors: list[ThreadSafeCurve | None] = []
+        """Calibrated thermistor temperature curves matching sensor order."""
+
         for idx, sensor in enumerate(self.sensors):
             self.tscurves_R.append(
                 HistoryChartCurve(
@@ -271,27 +393,29 @@ class MainWindow(QtWid.QWidget):
                 )
             )
 
-            """
-            self.tscurves_T.append(
-                HistoryChartCurve(
-                    capacity=CHART_CAPACITY,
-                    linked_curve=self.pi_T.plot(
-                        pen=pens[idx],
-                        name=f"Sensor {sensor.address}",
-                    ),
-                )
-            )
-            """
+            fit_report = self.fit_reports_by_address.get(sensor.address)
+            if fit_report is None:
+                self.tscurves_T_thermistors.append(None)
+                continue
 
-        self.tscurves_T.append(
-            HistoryChartCurve(
+            temp_curve = HistoryChartCurve(
                 capacity=CHART_CAPACITY,
                 linked_curve=self.pi_T.plot(
-                    pen=pens[4],
-                    name="PT-104",
+                    pen=pens[idx],
+                    name=f"Sensor {sensor.address}",
                 ),
             )
+            self.tscurves_T_thermistors.append(temp_curve)
+            self.tscurves_T.append(temp_curve)
+
+        self.tscurve_T_PT104 = HistoryChartCurve(
+            capacity=CHART_CAPACITY,
+            linked_curve=self.pi_T.plot(
+                pen=pens[4],
+                name="PT-104",
+            ),
         )
+        self.tscurves_T.append(self.tscurve_T_PT104)
 
         self.tscurves_all = self.tscurves_R + self.tscurves_T
         """List of all ThreadSafeCurves"""
@@ -300,11 +424,21 @@ class MainWindow(QtWid.QWidget):
         #   Legend
         # -------------------------
 
-        legend = LegendSelect(linked_curves=self.tscurves_R)
-        legend.grid.setVerticalSpacing(0)
+        legend_R = LegendSelect(linked_curves=self.tscurves_R)
+        legend_R.grid.setVerticalSpacing(0)
+        self.qgrp_legend_R = QtWid.QGroupBox("Legend: Resistance")
+        self.qgrp_legend_R.setLayout(legend_R.grid)
 
-        self.qgrp_legend = QtWid.QGroupBox("Legend")
-        self.qgrp_legend.setLayout(legend.grid)
+        legend_T = LegendSelect(linked_curves=self.tscurves_T)
+        legend_T.grid.setVerticalSpacing(0)
+        self.qgrp_legend_T = QtWid.QGroupBox("Legend: Temperature")
+        self.qgrp_legend_T.setLayout(legend_T.grid)
+
+        self.qgrp_legend = QtWid.QGroupBox("Legends")
+        vbox_legend = QtWid.QVBoxLayout()
+        vbox_legend.addWidget(self.qgrp_legend_R)
+        vbox_legend.addWidget(self.qgrp_legend_T)
+        self.qgrp_legend.setLayout(vbox_legend)
 
         # -------------------------
         #   PlotManager
@@ -448,7 +582,9 @@ class MainWindow(QtWid.QWidget):
         """Legend initially only hides/shows the resistance curves. Make other
         curves follow this visibility."""
         for idx, tscurve_R in enumerate(self.tscurves_R):
-            self.tscurves_T[idx].setVisible(tscurve_R.isVisible())
+            tscurve_T = self.tscurves_T_thermistors[idx]
+            if tscurve_T is not None:
+                tscurve_T.setVisible(tscurve_R.isVisible())
 
     @Slot(bool)
     def process_qpbt_running(self, state: bool):
@@ -570,7 +706,17 @@ if __name__ == "__main__":
         time = ard.state.sensors[0].time
         for idx, sensor in enumerate(ard.state.sensors):
             window.tscurves_R[idx].extendData(time, sensor.R)
-            # window.tscurves_T[idx].extendData(time, sensor.T)
+
+            fit_report = window.fit_reports_by_address.get(sensor.address)
+            tscurve_T = window.tscurves_T_thermistors[idx]
+            if fit_report is not None and tscurve_T is not None:
+                temp_degC = resistance_to_temperature_degC(
+                    np.asarray(sensor.R),
+                    fit_report,
+                    warned_addresses=window.warned_out_of_calibration_addresses,
+                    sample_time_s=float(time[0]),
+                )
+                tscurve_T.extendData(time, temp_degC)
 
         # NOTE: The PT-104 has a different DAQ rate than the thermistor
         # read-outs. As long as both are near similar time intervals, we can use
@@ -580,7 +726,7 @@ if __name__ == "__main__":
         # differing by more than a factor of 2. In that case, a more elaborate
         # scheme using 'sample & hold' interpolation or data decimation is
         # necessary.
-        window.tscurves_T[0].appendData(time[0], pt104.state.ch1_T)
+        window.tscurve_T_PT104.appendData(time[0], pt104.state.ch1_T)
 
         # Add readings to the log
         log.update()
