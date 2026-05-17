@@ -101,6 +101,11 @@ def current_date_time_strings():
     )
 
 
+# ------------------------------------------------------------------------------
+#   scan_fit_reports
+# ------------------------------------------------------------------------------
+
+
 def scan_fit_reports(
     folder: Path,
 ) -> dict[str, SteinhartHartFitReport]:
@@ -126,31 +131,43 @@ def scan_fit_reports(
                     "Loaded fit report "
                     f"{report_path.name} for sensor {sensor_address}"
                 )
+                print(fit_report)
         except Exception as err:  # pylint: disable=broad-except
             print(f"Could not load fit report {report_path.name}: {err}")
 
     return reports_by_address
 
 
-def resistance_to_temperature_degC(
-    resistance_ohm: np.ndarray,
+# ------------------------------------------------------------------------------
+#   resistance_to_temperature_K
+# ------------------------------------------------------------------------------
+
+
+def resistance_to_temperature_K(
+    R: np.ndarray,
     fit_report: SteinhartHartFitReport,
     warned_addresses: set[str] | None = None,
     sample_time_s: float | None = None,
 ) -> np.ndarray:
-    """Convert thermistor resistance to temperature in degree Celsius."""
-    temp_degC = np.full_like(resistance_ohm, np.nan, dtype=float)
-    finite_positive = np.isfinite(resistance_ohm) & (resistance_ohm > 0)
+    """Convert thermistor resistances ``R`` in Ohm to temperatures in Kelvin
+    using the Steinhart-Hart fit coefficients from ``fit_report``.
+
+    Return a `numpy.nan` temperature value for each value of ``R`` that is
+    outside of the calibrated range. Issue a warning at the first occurrence of
+    an out-of-calibration resistance value per thermistor.
+    """
+    temp_K = np.full_like(R, np.nan, dtype=float)
+    finite_positive = np.isfinite(R) & (R > 0)
     valid = finite_positive.copy()
 
-    range_min, range_max = fit_report.calibrated_range_R
+    valid_R_min, valid_R_max = fit_report.calibrated_range_R
     range_is_valid = (
-        np.isfinite(range_min)
-        and np.isfinite(range_max)
-        and (range_min <= range_max)
+        np.isfinite(valid_R_min)
+        and np.isfinite(valid_R_max)
+        and (valid_R_min <= valid_R_max)
     )
     if range_is_valid:
-        valid &= (resistance_ohm >= range_min) & (resistance_ohm <= range_max)
+        valid &= (R >= valid_R_min) & (R <= valid_R_max)
 
         out_of_range = finite_positive & ~valid
         if np.any(out_of_range):
@@ -175,14 +192,14 @@ def resistance_to_temperature_degC(
                     warned_addresses.add(sensor_address)
 
     if not np.any(valid):
-        return temp_degC
+        return temp_K
 
-    temp_kelvin = np.asarray(
-        steinhart_hart(resistance_ohm[valid], fit_report.coeffs),
+    temp_K[valid] = np.asarray(
+        steinhart_hart(R[valid], fit_report.coeffs),
         dtype=float,
     )
-    temp_degC[valid] = temp_kelvin + ABS_ZERO_IN_DEG_C
-    return temp_degC
+
+    return temp_K
 
 
 # ------------------------------------------------------------------------------
@@ -710,13 +727,13 @@ if __name__ == "__main__":
             fit_report = window.fit_reports_by_address.get(sensor.address)
             tscurve_T = window.tscurves_T_thermistors[idx]
             if fit_report is not None and tscurve_T is not None:
-                temp_degC = resistance_to_temperature_degC(
+                temp_K = resistance_to_temperature_K(
                     np.asarray(sensor.R),
                     fit_report,
                     warned_addresses=window.warned_out_of_calibration_addresses,
                     sample_time_s=float(time[0]),
                 )
-                tscurve_T.extendData(time, temp_degC)
+                tscurve_T.extendData(time, temp_K + ABS_ZERO_IN_DEG_C)
 
         # NOTE: The PT-104 has a different DAQ rate than the thermistor
         # read-outs. As long as both are near similar time intervals, we can use
