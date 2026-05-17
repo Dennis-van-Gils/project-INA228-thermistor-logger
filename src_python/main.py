@@ -516,7 +516,9 @@ class MainWindow(QtWid.QWidget):
         self.timestamp = QtWid.QLineEdit(**p)
 
         self.qlins_R: list[QtWid.QLineEdit] = []
-        """List of all QLineEdits 'Resistance: R"""
+        """List of all QLineEdits `Resistance: R [Ohm]`"""
+        self.qlins_T: list[QtWid.QLineEdit] = []
+        """List of all QLineEdits `Temperature: T ['C]`"""
         self.qlins_I: list[QtWid.QLineEdit] = []
         """List of all QLineEdits 'Current: I"""
         self.qlins_V: list[QtWid.QLineEdit] = []
@@ -524,6 +526,7 @@ class MainWindow(QtWid.QWidget):
 
         for sensor in self.sensors:
             self.qlins_R.append(QtWid.QLineEdit(**p))
+            self.qlins_T.append(QtWid.QLineEdit(**p))
             self.qlins_I.append(QtWid.QLineEdit(**p))
             self.qlins_V.append(QtWid.QLineEdit(**p))
 
@@ -539,20 +542,22 @@ class MainWindow(QtWid.QWidget):
         i = 0
         grid = QtWid.QGridLayout()
         grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        grid.addWidget(self.qpbt_running         , i, 0, 1, 4); i+=1
+        grid.addWidget(self.qpbt_running         , i, 0, 1, 5); i+=1
         grid.addWidget(QtWid.QLabel("Time")      , i, 0)
         grid.addWidget(self.timestamp            , i, 1)
         grid.addWidget(QtWid.QLabel("sec")       , i, 2); i+=1
         grid.addWidget(QtWid.QLabel("")          , i, 0)
         grid.addWidget(QtWid.QLabel("R (\u03a9)"), i, 1)
-        grid.addWidget(QtWid.QLabel("I (mA)")    , i, 2)
-        grid.addWidget(QtWid.QLabel("V (V)")     , i, 3); i+=1
+        grid.addWidget(QtWid.QLabel("T (\u00b0C)"), i, 2)
+        grid.addWidget(QtWid.QLabel("I (mA)")    , i, 3)
+        grid.addWidget(QtWid.QLabel("V (V)")     , i, 4); i+=1
 
         for idx, sensor in enumerate(self.sensors):
             grid.addWidget(QtWid.QLabel(sensor.address), i, 0)
             grid.addWidget(self.qlins_R[idx]           , i, 1)
-            grid.addWidget(self.qlins_I[idx]           , i, 2)
-            grid.addWidget(self.qlins_V[idx]           , i, 3)
+            grid.addWidget(self.qlins_T[idx]           , i, 2)
+            grid.addWidget(self.qlins_I[idx]           , i, 3)
+            grid.addWidget(self.qlins_V[idx]           , i, 4)
             i+=1
         # fmt: on
 
@@ -635,7 +640,23 @@ class MainWindow(QtWid.QWidget):
         if self.do_update_readings_GUI and state.sensors[0].time.is_full:
             self.timestamp.setText(f"{self.sensors[0].time[0]:.1f}")
             for idx, sensor in enumerate(self.sensors):
-                self.qlins_R[idx].setText(f"{np.mean(sensor.R):.0f}")
+                mean_R = float(np.mean(sensor.R))
+                self.qlins_R[idx].setText(f"{mean_R:.0f}")
+
+                fit_report = self.fit_reports_by_address.get(sensor.address)
+                if fit_report is None:
+                    self.qlins_T[idx].setText("--")
+                else:
+                    temp_K = resistance_to_temperature_K(
+                        np.asarray([mean_R]),
+                        fit_report,
+                        warned_addresses=self.warned_out_of_calibration_addresses,
+                        sample_time_s=float(sensor.time[0]),
+                    )[0]
+                    self.qlins_T[idx].setText(
+                        f"{temp_K + ABS_ZERO_IN_DEG_C:.3f}"
+                    )
+
                 self.qlins_I[idx].setText(f"{np.mean(sensor.I) * 1e3:.5f}")
                 self.qlins_V[idx].setText(f"{np.mean(sensor.V_bus):.5f}")
 
