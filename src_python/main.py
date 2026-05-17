@@ -26,7 +26,7 @@ import numpy as np
 import pyqtgraph as pg
 import qtawesome as qta
 
-from dvg_debug_functions import tprint
+from dvg_debug_functions import tprint, dprint, ANSI
 from dvg_pyqtgraph_threadsafe import (
     HistoryChartCurve,
     ThreadSafeCurve,
@@ -127,9 +127,10 @@ def scan_fit_reports(
             sensor_address = fit_report.sensor_address.strip()
             if sensor_address:
                 reports_by_address[sensor_address] = fit_report
-                print(
+                dprint(
                     "Loaded fit report "
-                    f"{report_path.name} for sensor {sensor_address}"
+                    f"{report_path.name} for sensor {sensor_address}",
+                    ANSI.YELLOW,
                 )
                 print(fit_report)
         except Exception as err:  # pylint: disable=broad-except
@@ -183,10 +184,11 @@ def resistance_to_temperature_K(
                     if sample_time_s is not None
                     else ""
                 )
-                print(
+                dprint(
                     "Out-of-calibration resistance detected for "
                     f"sensor {sensor_address} at {str_cur_date} "
-                    f"{str_cur_time}{sample_info}."
+                    f"{str_cur_time}{sample_info}.",
+                    ANSI.RED,
                 )
                 if warned_addresses is not None:
                     warned_addresses.add(sensor_address)
