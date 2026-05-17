@@ -391,13 +391,14 @@ class MainWindow(QtWid.QWidget):
         # fmt: on
 
         self.tscurves_R: list[ThreadSafeCurve] = []
-        """List of ThreadSafeCurves `Resistance: R`"""
+        """List of ThreadSafeCurves `Resistance: R [Ohm]`"""
 
         self.tscurves_T: list[ThreadSafeCurve] = []
-        """List of ThreadSafeCurves `Temperature: T`"""
+        """List of ThreadSafeCurves `Temperature: T ['C]`"""
 
         self.tscurves_T_thermistors: list[ThreadSafeCurve | None] = []
-        """Calibrated thermistor temperature curves matching sensor order."""
+        """Sub-set of ``tscurves_T``: Thermistor temperature ['C]. A list item
+        with value ``None`` indicates a missing fit report."""
 
         for idx, sensor in enumerate(self.sensors):
             self.tscurves_R.append(
