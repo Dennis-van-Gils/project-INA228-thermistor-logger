@@ -23,12 +23,15 @@
  *   - Measurement Specialties (GA)G22K7MCD419
  *     Glass bead Ø0.38mm, 30 ms response time in liquids.
  *
- * How to compile
- * --------------
- * When using an ESP32 microcontroller within VSCode using the Arduino
- * framework, see the guide at:
- * https://github.com/pioarduino/platform-espressif32
- * NOTE: Currently only supports Espressif Arduino 3.3.8 and IDF v5.5.4
+ * NOTES:
+ *   - To compile for an ESP32 microcontroller within VSCode using the Arduino
+ *     framework, see the guide at
+ *     https://github.com/pioarduino/platform-espressif32.
+ *     Currently only supports Espressif Arduino 3.3.8 and IDF v5.5.4.
+ *
+ *   - Can only handle one telnet client at a time. Serving multiple clients
+ *     requires rewriting the messaging protocol between the microcontroller and
+ *     the Python main control program.
  *
  * @copyright MIT License. See the LICENSE file for details.
  */
@@ -309,7 +312,7 @@ void loop() {
   ----------------------------------------------------------------------------*/
 
   if (DAQ_running && ina228_sensors[0].conversionReady()) {
-    snprintf(buf, BUF_LEN, "%lu", now); // Timestamp [ms]
+    snprintf(buf, BUF_LEN, "DATA %lu", now); // Timestamp [ms]
 
     for (auto &ina228 : ina228_sensors) {
       float V_bus = ina228.readBusVoltage();     // [V]

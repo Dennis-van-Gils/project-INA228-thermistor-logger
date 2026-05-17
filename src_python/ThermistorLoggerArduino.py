@@ -209,10 +209,10 @@ class ThermistorLoggerBase(ABC):
         return self.write("off")
 
     # --------------------------------------------------------------------------
-    #   parse_readings
+    #   parse_data_readings
     # --------------------------------------------------------------------------
 
-    def parse_readings(self, line: str) -> bool:
+    def parse_data_readings(self, line: str) -> bool:
         """Parse the ASCII string `line` as received from the Arduino into
         separate variables and store these into the `state` ring buffers.
 
@@ -269,9 +269,16 @@ class ThermistorLoggerBase(ABC):
 
             if not isinstance(line, str):
                 pft("Data received from the Arduino was not an ASCII string.")
-                break
+                continue
 
-            if not self.parse_readings(line):
+            if not line[:5] == "DATA ":
+                """Another Telnet client could be querying the Arduino, causing
+                the query reply to get inserted into this client's data stream.
+                Ignore this reply and stay silent.
+                """
+                continue
+
+            if not self.parse_data_readings(line[5:]):
                 break
 
             new_rows_count += 1
