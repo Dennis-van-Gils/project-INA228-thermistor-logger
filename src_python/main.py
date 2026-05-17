@@ -444,21 +444,12 @@ class MainWindow(QtWid.QWidget):
         #   Legend
         # -------------------------
 
-        legend_R = LegendSelect(linked_curves=self.tscurves_R)
-        legend_R.grid.setVerticalSpacing(0)
-        self.qgrp_legend_R = QtWid.QGroupBox("Legend: Resistance")
-        self.qgrp_legend_R.setLayout(legend_R.grid)
-
-        legend_T = LegendSelect(linked_curves=self.tscurves_T)
-        legend_T.grid.setVerticalSpacing(0)
-        self.qgrp_legend_T = QtWid.QGroupBox("Legend: Temperature")
-        self.qgrp_legend_T.setLayout(legend_T.grid)
-
-        self.qgrp_legend = QtWid.QGroupBox("Legends")
-        vbox_legend = QtWid.QVBoxLayout()
-        vbox_legend.addWidget(self.qgrp_legend_R)
-        vbox_legend.addWidget(self.qgrp_legend_T)
-        self.qgrp_legend.setLayout(vbox_legend)
+        legend_all = LegendSelect(
+            linked_curves=self.tscurves_R + [self.tscurve_T_PT104]
+        )
+        legend_all.grid.setVerticalSpacing(0)
+        self.qgrp_legend = QtWid.QGroupBox("Legend")
+        self.qgrp_legend.setLayout(legend_all.grid)
 
         # -------------------------
         #   PlotManager
@@ -635,7 +626,7 @@ class MainWindow(QtWid.QWidget):
             else ""
         )
 
-        # self.update_legend_visibility()
+        self.update_legend_visibility()
 
         if self.do_update_readings_GUI and state.sensors[0].time.is_full:
             self.timestamp.setText(f"{self.sensors[0].time[0]:.1f}")
