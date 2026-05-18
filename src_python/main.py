@@ -507,19 +507,17 @@ class MainWindow(QtWid.QWidget):
         self.timestamp = QtWid.QLineEdit(**p)
 
         self.qlins_R: list[QtWid.QLineEdit] = []
-        """List of all QLineEdits `Resistance: R [Ohm]`"""
         self.qlins_T: list[QtWid.QLineEdit] = []
-        """List of all QLineEdits `Temperature: T ['C]`"""
         self.qlins_I: list[QtWid.QLineEdit] = []
-        """List of all QLineEdits 'Current: I"""
         self.qlins_V: list[QtWid.QLineEdit] = []
-        """List of all QLineEdits 'Voltage: V"""
+        self.qlins_T_die: list[QtWid.QLineEdit] = []
 
         for sensor in self.sensors:
             self.qlins_R.append(QtWid.QLineEdit(**p))
             self.qlins_T.append(QtWid.QLineEdit(**p))
             self.qlins_I.append(QtWid.QLineEdit(**p))
             self.qlins_V.append(QtWid.QLineEdit(**p))
+            self.qlins_T_die.append(QtWid.QLineEdit(**p))
 
         self.qpbt_running = controls.create_Toggle_button(
             "Running", checked=True
@@ -533,15 +531,21 @@ class MainWindow(QtWid.QWidget):
         i = 0
         grid = QtWid.QGridLayout()
         grid.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        grid.addWidget(self.qpbt_running         , i, 0, 1, 5); i+=1
-        grid.addWidget(QtWid.QLabel("Time")      , i, 0)
-        grid.addWidget(self.timestamp            , i, 1)
-        grid.addWidget(QtWid.QLabel("sec")       , i, 2); i+=1
-        grid.addWidget(QtWid.QLabel("")          , i, 0)
-        grid.addWidget(QtWid.QLabel("R (\u03a9)"), i, 1)
-        grid.addWidget(QtWid.QLabel("T (\u00b0C)"), i, 2)
-        grid.addWidget(QtWid.QLabel("I (mA)")    , i, 3)
-        grid.addWidget(QtWid.QLabel("V (V)")     , i, 4); i+=1
+        grid.addWidget(self.qpbt_running              , i, 0, 1, 3)
+        grid.addWidget(
+            QtWid.QLabel(
+                "Time",
+                alignment=(QtCore.Qt.AlignmentFlag.AlignRight |
+                           QtCore.Qt.AlignmentFlag.AlignVCenter)
+            )                                         , i, 3)
+        grid.addWidget(self.timestamp                 , i, 4)
+        grid.addWidget(QtWid.QLabel("sec")            , i, 5); i+=1
+        grid.addWidget(QtWid.QLabel("")               , i, 0)
+        grid.addWidget(QtWid.QLabel("R (\u03a9)")     , i, 1)
+        grid.addWidget(QtWid.QLabel("T (\u00b0C)")    , i, 2)
+        grid.addWidget(QtWid.QLabel("I (mA)")         , i, 3)
+        grid.addWidget(QtWid.QLabel("V (V)")          , i, 4)
+        grid.addWidget(QtWid.QLabel("T_die (\u00b0C)"), i, 5); i+=1
 
         for idx, sensor in enumerate(self.sensors):
             grid.addWidget(QtWid.QLabel(sensor.address), i, 0)
@@ -549,6 +553,7 @@ class MainWindow(QtWid.QWidget):
             grid.addWidget(self.qlins_T[idx]           , i, 2)
             grid.addWidget(self.qlins_I[idx]           , i, 3)
             grid.addWidget(self.qlins_V[idx]           , i, 4)
+            grid.addWidget(self.qlins_T_die[idx]       , i, 5)
             i+=1
         # fmt: on
 
@@ -573,7 +578,11 @@ class MainWindow(QtWid.QWidget):
         vbox = QtWid.QVBoxLayout()
         vbox.addWidget(qgrp_readings)
         vbox.addLayout(hbox, 0)
-        vbox.addWidget(qdev_pt104.qgrp)  # GUI Picotech PT-104
+        vbox.addWidget(
+            qdev_pt104.qgrp,
+            alignment=QtCore.Qt.AlignmentFlag.AlignTop
+            | QtCore.Qt.AlignmentFlag.AlignLeft,
+        )  # GUI Picotech PT-104
         vbox.addStretch(1)
 
         # Round up bottom frame
@@ -650,6 +659,7 @@ class MainWindow(QtWid.QWidget):
 
                 self.qlins_I[idx].setText(f"{np.mean(sensor.I) * 1e3:.5f}")
                 self.qlins_V[idx].setText(f"{np.mean(sensor.V_bus):.5f}")
+                self.qlins_T_die[idx].setText(f"{np.mean(sensor.T_die):.1f}")
 
             if DEBUG:
                 tprint("update_chart")
@@ -682,7 +692,7 @@ if __name__ == "__main__":
     # ard.auto_connect()
 
     ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
-    ard.connect(host="wlan069093.wireless.utwente.nl", port=23)
+    ard.connect(host="192.168.50.210", port=23)
 
     if not ard.is_alive:
         print("\nCheck connection and try resetting the Arduino.")
@@ -796,9 +806,15 @@ if __name__ == "__main__":
 
     def write_header_to_log():
         log.write(f"Sensors: {ard.state.sensor_addresses}\n")
+        log.write(
+            "Die temperature enabled: "
+            f"{int(ard.state.die_temperature_enabled)}\n"
+        )
         log.write("Time [s]\tPT104 [\u00b0C]")
         for idx, _ in enumerate(ard.state.sensors):
             log.write(f"\tR_{idx} [\u03a9]\tI_{idx} [A]\tV_{idx} [V]")
+            if ard.state.die_temperature_enabled:
+                log.write(f"\tT_die_{idx} [\u00b0C]")
         log.write("\n")
 
     def write_data_to_log():
@@ -823,6 +839,10 @@ if __name__ == "__main__":
             data.append(sensor.I)
             data.append(sensor.V_bus)
             fmts += "\t%.0f\t%.5e\t%.5f"
+
+            if ard.state.die_temperature_enabled:
+                data.append(sensor.T_die)
+                fmts += "\t%.1f"
 
         np_data = np.column_stack(data)
         log.np_savetxt(np_data, fmts)

@@ -432,6 +432,10 @@ class ThermistorData:
         """Per-sensor containers. Each container holds timeseries data from one
         INA228 sensor to which a thermistor is connected."""
 
+        self.die_temperature_enabled = 0
+        """Is the INA228 die temperature acquisition enabled and reported as an
+        extra data column?"""
+
         self.time: npt.NDArray[np.float64] = np.array([])
         """Time [s]"""
 
@@ -483,21 +487,31 @@ class ThermistorData:
         self.filename = filepath.stem
 
         with filepath.open(encoding="utf-8") as f:
-            # The first two lines are expected to be the header
+            # The first three lines are expected to be the header
             try:
+                self.header.append(f.readline().strip())
                 self.header.append(f.readline().strip())
                 self.header.append(f.readline().strip())
             except UnicodeDecodeError as e:
                 raise TypeError("Unexpected file format.") from e
 
         # Parse line 1 of the header
-        # Expecting: "Sensors: ['0x40', '0x41', '0x44', '0x45']"
+        # Expecting like: "Sensors: ['0x40', '0x41', '0x44', '0x45']"
         self.sensor_addresses = re.findall(r"0x[0-9A-Fa-f]+", self.header[0])
         self.N_sensors = len(self.sensor_addresses)
 
-        # The remaining lines are expected to contain tab-delimited data values
+        # Parse line 2 of the header
+        # Expecting like: "Die temperature enabled: 0"
         try:
-            raw_data = np.loadtxt(filepath, skiprows=2, delimiter="\t")
+            self.die_temperature_enabled = bool(int(self.header[1][25]))
+        except (ValueError, IndexError) as e:
+            raise ValueError(
+                "Could not parse `die_temperature_enabled` from header."
+            ) from e
+
+        # Read the data section
+        try:
+            raw_data = np.loadtxt(filepath, skiprows=3, delimiter="\t")
         except ValueError as e:
             raise ValueError("Unexpected file format.") from e
 
@@ -511,7 +525,7 @@ class ThermistorData:
         self.time -= self.time[0]
 
         try:
-            N_FIELDS = 3
+            N_FIELDS = 4 if self.die_temperature_enabled else 3
             for idx, sensor_address in enumerate(self.sensor_addresses):
                 sensor = INA228_Sensor()
                 sensor.address = sensor_address
@@ -519,10 +533,15 @@ class ThermistorData:
                 sensor.R = raw_data[:, idx * N_FIELDS + 2]
                 sensor.I = raw_data[:, idx * N_FIELDS + 3]
                 sensor.V = raw_data[:, idx * N_FIELDS + 4]
+                if self.die_temperature_enabled:
+                    sensor.T_die = raw_data[:, idx * N_FIELDS + 5]
 
                 self.sensors.append(sensor)
         except IndexError as e:
             raise IndexError("Wrong number of data columns in file.") from e
+
+        if not self.die_temperature_enabled:
+            sensor.T_die = np.full_like(sensor.R, np.nan, dtype=float)
 
     # --------------------------------------------------------------------------
     #   quick_plot

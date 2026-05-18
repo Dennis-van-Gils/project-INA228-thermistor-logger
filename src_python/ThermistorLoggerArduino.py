@@ -33,6 +33,8 @@ import serial
 from abc import ABC, abstractmethod
 from typing import Union
 
+import numpy as np
+
 from dvg_debug_functions import print_fancy_traceback as pft
 from dvg_ringbuffer import RingBuffer
 
@@ -114,6 +116,10 @@ class ThermistorLoggerBase(ABC):
             self.sensors: list[ThermistorLoggerBase.INA228_Sensor] = []
             """List of all INA228 sensors, each containing thermistor data."""
 
+            self.die_temperature_enabled = 0
+            """Is the INA228 die temperature acquisition enabled and reported
+            as an extra data column?"""
+
         def clear(self):
             for sensor in self.sensors:
                 sensor.clear()
@@ -140,16 +146,14 @@ class ThermistorLoggerBase(ABC):
         been received or when the read timeout has expired."""
 
     def begin(self) -> bool:
-        """Query the Arduino for the addresses of all connected INA228 sensors,
-        and populate the `state.sensors` member accordingly.
-
-        This method must be called once after a connection has been made to
-        the Arduino.
+        """This method must be called once directly after a connection has been
+        made to the Arduino.
 
         Returns:
             True if successful, False otherwise.
         """
-        if self.query_sensor_addresses():
+        success = self.query_sensor_addresses()
+        if success:
             for address in self.state.sensor_addresses:
                 self.state.sensors.append(
                     self.INA228_Sensor(
@@ -157,9 +161,9 @@ class ThermistorLoggerBase(ABC):
                         address,
                     )
                 )
-            return True
+        success &= self.query_die_temperature_enabled()
 
-        return False
+        return success
 
     # --------------------------------------------------------------------------
     #   Arduino commands
@@ -184,6 +188,28 @@ class ThermistorLoggerBase(ABC):
                 # All successful
                 self.state.sensor_addresses = addresses
                 self.state.N_sensors = len(addresses)
+                return True
+
+        return False
+
+    def query_die_temperature_enabled(self) -> bool:
+        """Query the Arduino if the INA228 die temperature is being acquired and
+        send out as an extra data column per sensor. The reply will get parsed
+        and stored in member `die_temperature_enabled`.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        success, reply = self.query("die_temp_ena?")
+
+        if success and isinstance(reply, str):
+            try:
+                die_temp = bool(int(reply))
+            except (TypeError, ValueError) as err:
+                pft(err)
+            else:
+                # All successful
+                self.state.die_temperature_enabled = die_temp
                 return True
 
         return False
@@ -220,7 +246,7 @@ class ThermistorLoggerBase(ABC):
             True when successful, False otherwise.
         """
         parts = line.strip("\n").split("\t")
-        N_FIELDS = 4
+        N_FIELDS = 5 if self.state.die_temperature_enabled else 4
 
         try:
             for idx, sensor in enumerate(self.state.sensors):
@@ -229,6 +255,11 @@ class ThermistorLoggerBase(ABC):
                 sensor.V_shunt.append(float(parts[idx * N_FIELDS + 2]) * 1e-3)
                 sensor.I.append(float(parts[idx * N_FIELDS + 3]) * 1e-3)
                 sensor.R.append(float(parts[idx * N_FIELDS + 4]))
+                sensor.T_die.append(
+                    float(parts[idx * N_FIELDS + 5])
+                    if self.state.die_temperature_enabled
+                    else np.nan
+                )
 
         except IndexError:
             pft("Received an incorrect number of values from the Arduino.")
