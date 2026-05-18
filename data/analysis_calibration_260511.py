@@ -8,15 +8,6 @@ from matplotlib.figure import Figure
 
 import ThermistorData as td
 
-if 0:
-    # Initial inspection to figure out what data to select for further analysis.
-    # We are manually going to chop logs into smaller files that each contain
-    # a single temperature ramp, going either up or down, or a constant
-    # temperature section.
-    data_1 = td.ThermistorData("calibration_260514/260514_154709.txt")
-    fig_1 = data_1.quick_plot(save_to_disk=True)
-    plt.show()
-
 # Plot lay-out
 # plt.style.use("default")
 plt.style.use("dark_background")
@@ -34,6 +25,15 @@ figure_args = {"figsize": (16, 10), "dpi": 90}
 # ------------------------------------------------------------------------------
 #   Read data from disk
 # ------------------------------------------------------------------------------
+
+if 0:
+    # Initial inspection to figure out what data to select for further analysis.
+    # We are manually going to chop logs into smaller files that each contain
+    # a single temperature ramp, going either up or down, or a constant
+    # temperature section.
+    data_1 = td.ThermistorData("calibration_260514/260514_154709.txt")
+    fig_1 = data_1.quick_plot(save_to_disk=True)
+    plt.show()
 
 data = [
     td.ThermistorData("calibration_260511/260511_151804_1_ramp_up.txt"),
