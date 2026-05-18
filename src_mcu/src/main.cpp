@@ -82,6 +82,11 @@ const INA2XX_ConversionTime INA228_CONV_TIME_TEMP = INA228_TIME_4120_us;
 // Prevent resetting the INA228 chip on init?
 const bool SKIP_RESET = true;
 
+// Should the INA228 die temperature also be acquired and reported over the
+// data stream as an extra column? When enabled, this will decrease the overal
+// data rate.
+const bool INA228_DIE_TEMPERATURE_ENABLED = false;
+
 /*------------------------------------------------------------------------------
   Char buffers and command listeners
 ------------------------------------------------------------------------------*/
@@ -197,8 +202,11 @@ void setup() {
     Serial.println(i2c_address, HEX);
     i++;
 
-    ina228.setMode(INA228_MODE_CONT_BUS_SHUNT);
-    // ina228.setMode(INA228_MODE_CONT_TEMP_BUS_SHUNT);
+    if (INA228_DIE_TEMPERATURE_ENABLED) {
+      ina228.setMode(INA228_MODE_CONT_TEMP_BUS_SHUNT);
+    } else {
+      ina228.setMode(INA228_MODE_CONT_BUS_SHUNT);
+    }
     ina228.setShunt(INA228_SHUNT_RES, INA228_MAX_CURRENT);
     ina228.setADCRange(INA228_ADC_RANGE);
     ina228.setAveragingCount(INA228_AVERAGING_COUNT);
@@ -265,6 +273,10 @@ void loop() {
         println(buf);
         DAQ_running = false;
 
+      } else if (strcmp(str_cmd, "die_temp_ena?") == 0) {
+        snprintf(buf, BUF_LEN, "%i", INA228_DIE_TEMPERATURE_ENABLED);
+        println(buf);
+
       } else if (strcmp(str_cmd, "on") == 0) {
         DAQ_running = true;
 
@@ -312,25 +324,30 @@ void loop() {
   ----------------------------------------------------------------------------*/
 
   if (DAQ_running && ina228_sensors[0].conversionReady()) {
+    float V_bus, V_shunt, I, R, T_die;
+
     snprintf(buf, BUF_LEN, "DATA %lu", now); // Timestamp [ms]
 
     for (auto &ina228 : ina228_sensors) {
-      float V_bus = ina228.readBusVoltage();     // [V]
-      float V_shunt = ina228.readShuntVoltage(); // [mV]
-      float I = ina228.readCurrent();            // [mA]
-      float R = V_bus / I * 1000.;               // [Ohm]
-      // float T_die = ina228.readDieTemp();        // ['C]
+      V_bus = ina228.readBusVoltage();     // [V]
+      V_shunt = ina228.readShuntVoltage(); // [mV]
+      I = ina228.readCurrent();            // [mA]
+      R = V_bus / I * 1000.;               // [Ohm]
+      if (INA228_DIE_TEMPERATURE_ENABLED) {
+        T_die = ina228.readDieTemp(); // ['C]
+      }
 
       int n = strlen(buf);
       snprintf(buf + n, BUF_LEN - n,
-               "\t%.5f" // V_bus   [V]
-               "\t%.5f" // V_shunt [mV]
-               "\t%.5f" // I       [mA]
-               "\t%.0f" // R       [Ohm]
-               // "\t%.1f" // T die   ['C]
-               ,
-               V_bus, V_shunt, I, R //, T_die
-      );
+               "\t%.5f"  // V_bus   [V]
+               "\t%.5f"  // V_shunt [mV]
+               "\t%.5f"  // I       [mA]
+               "\t%.0f", // R       [Ohm]
+               V_bus, V_shunt, I, R);
+      n = strlen(buf);
+      if (INA228_DIE_TEMPERATURE_ENABLED) {
+        snprintf(buf + n, BUF_LEN - n, "\t%.1f", T_die);
+      }
     }
 
     println(buf);
