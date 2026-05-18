@@ -48,6 +48,8 @@
 
 WiFiServer server(23);
 WiFiClient client;
+
+const uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
 #endif
 
 #if defined(_VARIANT_FEATHER_M4_) || defined(_VARIANT_ITSYBITSY_M4_)
@@ -163,21 +165,28 @@ void setup() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
   WiFi.begin(ssid, pass);
-  while (WiFi.status() != WL_CONNECTED) {
+  const uint32_t wifi_connect_start = millis();
+  while (WiFi.status() != WL_CONNECTED &&
+         (millis() - wifi_connect_start) < WIFI_CONNECT_TIMEOUT_MS) {
     delay(500);
     Serial.print(".");
   }
 
-  Serial.println("\nConnected to WiFi");
-  Serial.print("  SSID: ");
-  Serial.println(WiFi.SSID());
-  Serial.print("  IP  : ");
-  Serial.println(WiFi.localIP());
-  Serial.print("  RSSI: ");
-  Serial.print(WiFi.RSSI());
-  Serial.println(" dBm");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConnected to WiFi");
+    Serial.print("  SSID: ");
+    Serial.println(WiFi.SSID());
+    Serial.print("  IP  : ");
+    Serial.println(WiFi.localIP());
+    Serial.print("  RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
 
-  server.begin();
+    server.begin();
+  } else {
+    Serial.println("\nWiFi connection timed out");
+    WiFi.disconnect(true);
+  }
 #endif
 
   /*----------------------------------------------------------------------------
