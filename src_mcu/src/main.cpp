@@ -79,7 +79,7 @@ const INA2XX_AveragingCount INA228_AVERAGING_COUNT = INA228_COUNT_128;
 // Conversion time: 50, 84, 150, 280, 540, 1052, 2074, 4120 [us]
 const INA2XX_ConversionTime INA228_CONV_TIME_CURRENT = INA228_TIME_4120_us;
 const INA2XX_ConversionTime INA228_CONV_TIME_VOLTAGE = INA228_TIME_4120_us;
-const INA2XX_ConversionTime INA228_CONV_TIME_TEMP = INA228_TIME_4120_us;
+const INA2XX_ConversionTime INA228_CONV_TIME_TEMP = INA228_TIME_1052_us;
 
 // Prevent resetting the INA228 chip on init?
 const bool SKIP_RESET = true;
@@ -87,7 +87,7 @@ const bool SKIP_RESET = true;
 // Should the INA228 die temperature also be acquired and reported over the
 // data stream as an extra column? When enabled, this will decrease the overal
 // data rate.
-const bool INA228_DIE_TEMPERATURE_ENABLED = false;
+const bool INA228_DIE_TEMPERATURE_ENABLED = true;
 
 /*------------------------------------------------------------------------------
   Char buffers and command listeners
