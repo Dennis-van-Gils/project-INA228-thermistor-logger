@@ -637,7 +637,11 @@ class MainWindow(QtWid.QWidget):
 
         self.update_legend_visibility()
 
-        if self.do_update_readings_GUI and state.sensors[0].time.is_full:
+        if (
+            self.do_update_readings_GUI
+            and state.N_sensors > 0
+            and state.sensors[0].time.is_full
+        ):
             self.timestamp.setText(f"{self.sensors[0].time[0]:.1f}")
             for idx, sensor in enumerate(self.sensors):
                 mean_R = float(np.mean(sensor.R))

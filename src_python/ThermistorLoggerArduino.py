@@ -35,7 +35,7 @@ from typing import Union
 
 import numpy as np
 
-from dvg_debug_functions import print_fancy_traceback as pft
+from dvg_debug_functions import print_fancy_traceback as pft, dprint, ANSI
 from dvg_ringbuffer import RingBuffer
 
 from dvg_devices.Arduino_protocol_serial import Arduino
@@ -185,11 +185,13 @@ class ThermistorLoggerBase(ABC):
             except (TypeError, ValueError) as err:
                 pft(err)
             else:
-                # All successful
-                self.state.sensor_addresses = addresses
-                self.state.N_sensors = len(addresses)
-                return True
+                if not addresses[0] == "None":
+                    # All successful
+                    self.state.sensor_addresses = addresses
+                    self.state.N_sensors = len(addresses)
+                    return True
 
+        dprint("No INA228 sensors are connected.", ANSI.RED)
         return False
 
     def query_die_temperature_enabled(self) -> bool:

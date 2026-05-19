@@ -63,6 +63,8 @@ asm(".global _printf_float"); // Enables float support for `snprintf()`
 const uint8_t INA228_ADDRESSES[] = {0x40, 0x41, 0x44, 0x45};
 const size_t N_SENSORS = sizeof(INA228_ADDRESSES) / sizeof(INA228_ADDRESSES[0]);
 Adafruit_INA228 ina228_sensors[N_SENSORS];
+uint8_t connected_sensors_idxs[N_SENSORS];
+size_t N_connected_sensors = 0;
 
 // Shunt resistor value [Ohm]
 const float INA228_SHUNT_RES = 1.0;
@@ -195,21 +197,22 @@ void setup() {
 
   Serial.println("Connecting to INA228 sensors:");
 
-  uint8_t i = 0;
-  for (auto &ina228 : ina228_sensors) {
+  N_connected_sensors = 0;
+  for (size_t i = 0; i < N_SENSORS; i++) {
+    Adafruit_INA228 &ina228 = ina228_sensors[i];
     uint8_t i2c_address = INA228_ADDRESSES[i];
 
     if (!ina228.begin(i2c_address, &Wire, SKIP_RESET)) {
-      while (1) {
-        Serial.print("Could not connect to INA228 sensor at address 0x");
-        Serial.println(i2c_address, HEX);
-        delay(2000);
-      }
+      Serial.print("  Failed at address 0x");
+      Serial.println(i2c_address, HEX);
+      continue;
     }
+
+    connected_sensors_idxs[N_connected_sensors] = static_cast<uint8_t>(i);
+    N_connected_sensors++;
 
     Serial.print("  Success at address 0x");
     Serial.println(i2c_address, HEX);
-    i++;
 
     if (INA228_DIE_TEMPERATURE_ENABLED) {
       ina228.setMode(INA228_MODE_CONT_TEMP_BUS_SHUNT);
@@ -223,6 +226,9 @@ void setup() {
     ina228.setVoltageConversionTime(INA228_CONV_TIME_VOLTAGE);
     ina228.setTemperatureConversionTime(INA228_CONV_TIME_TEMP);
   }
+
+  Serial.print("Connected INA228 sensors: ");
+  Serial.println(N_connected_sensors);
 }
 
 /*------------------------------------------------------------------------------
@@ -273,11 +279,17 @@ void loop() {
         DAQ_running = false;
 
       } else if (strcmp(str_cmd, "addr?") == 0) {
-        // Report the addresses of all INA228 sensors
-        snprintf(buf, BUF_LEN, "0x%02X", INA228_ADDRESSES[0]);
-        for (uint8_t i = 1; i < N_SENSORS; i++) {
-          int n = strlen(buf);
-          snprintf(buf + n, BUF_LEN - n, "\t0x%02X", INA228_ADDRESSES[i]);
+        // Report the addresses of connected INA228 sensors
+        if (N_connected_sensors == 0) {
+          snprintf(buf, BUF_LEN, "None");
+        } else {
+          uint8_t first_idx = connected_sensors_idxs[0];
+          snprintf(buf, BUF_LEN, "0x%02X", INA228_ADDRESSES[first_idx]);
+          for (size_t i = 1; i < N_connected_sensors; i++) {
+            int n = strlen(buf);
+            uint8_t idx = connected_sensors_idxs[i];
+            snprintf(buf + n, BUF_LEN - n, "\t0x%02X", INA228_ADDRESSES[idx]);
+          }
         }
         println(buf);
         DAQ_running = false;
@@ -332,12 +344,14 @@ void loop() {
     Acquire data
   ----------------------------------------------------------------------------*/
 
-  if (DAQ_running && ina228_sensors[0].conversionReady()) {
+  if (DAQ_running && N_connected_sensors > 0 &&
+      ina228_sensors[connected_sensors_idxs[0]].conversionReady()) {
     float V_bus, V_shunt, I, R, T_die;
 
     snprintf(buf, BUF_LEN, "DATA %lu", now); // Timestamp [ms]
 
-    for (auto &ina228 : ina228_sensors) {
+    for (size_t i = 0; i < N_connected_sensors; i++) {
+      Adafruit_INA228 &ina228 = ina228_sensors[connected_sensors_idxs[i]];
       V_bus = ina228.readBusVoltage();     // [V]
       V_shunt = ina228.readShuntVoltage(); // [mV]
       I = ina228.readCurrent();            // [mA]
