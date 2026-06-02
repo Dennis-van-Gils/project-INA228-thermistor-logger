@@ -42,14 +42,21 @@
 #include "DvG_StreamCommand.h"
 
 #ifdef ESP32
+#include "Adafruit_NeoPixel.h"
 #include "secrets.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 
+const uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
 WiFiServer server(23);
 WiFiClient client;
 
-const uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
+const int16_t PIN_LED = 47;
+Adafruit_NeoPixel pixels(1, PIN_LED, NEO_RGB + NEO_KHZ800);
+
+const uint32_t COLOR_SETUP = pixels.Color(0, 0, 24);
+const uint32_t COLOR_LOOP = pixels.Color(0, 24, 0);
+const uint32_t COLOR_TRIGGER = pixels.Color(128, 128, 128);
 #endif
 
 #if defined(_VARIANT_FEATHER_M4_) || defined(_VARIANT_ITSYBITSY_M4_)
@@ -152,6 +159,11 @@ void setup() {
   */
 
 #ifdef ESP32
+  pixels.begin();
+  pixels.clear();
+  pixels.setPixelColor(0, COLOR_SETUP);
+  pixels.show();
+
   /*----------------------------------------------------------------------------
   Establish WiFi connection
   ----------------------------------------------------------------------------*/
@@ -161,7 +173,7 @@ void setup() {
 
   WiFi.useStaticBuffers(true);
   WiFi.mode(WIFI_STA);
-  // WiFi.config(IPAddress(192, 168, 1, 123), IPAddress(192, 168, 1, 1),
+  // WiFi.config(IPAddress(192, 168, 1, 124), IPAddress(192, 168, 1, 1),
   //             IPAddress(255, 255, 255, 0));
 
   Serial.print("Connecting to WiFi: ");
@@ -229,6 +241,11 @@ void setup() {
 
   Serial.print("Connected INA228 sensors: ");
   Serial.println(N_connected_sensors);
+
+#ifdef ESP32
+  pixels.setPixelColor(0, COLOR_LOOP);
+  pixels.show();
+#endif
 }
 
 /*------------------------------------------------------------------------------
@@ -241,6 +258,9 @@ void loop() {
   char *str_cmd;                  // Incoming command string
   bool cmd_pending = false;       // Command is pending to be processed?
   static bool DAQ_running = true; // Continuously output readings?
+
+  static uint32_t tick_led = now; // Last timestamp trigger LED turned on [ms]
+  static bool trigger_led = false;
 
 #ifdef ESP32
   if (server.hasClient()) {
@@ -298,6 +318,14 @@ void loop() {
         snprintf(buf, BUF_LEN, "%i", INA228_DIE_TEMPERATURE_ENABLED);
         println(buf);
 
+      } else if (strcmp(str_cmd, "trigger_led") == 0) {
+        trigger_led = true;
+#ifdef ESP32
+        pixels.setPixelColor(0, COLOR_TRIGGER);
+        pixels.show();
+#endif
+        tick_led = now;
+
       } else if (strcmp(str_cmd, "on") == 0) {
         DAQ_running = true;
 
@@ -338,6 +366,14 @@ void loop() {
 #endif
       }
     }
+  }
+
+  if (trigger_led && (now - tick_led > 1000)) {
+    trigger_led = false;
+#ifdef ESP32
+    pixels.setPixelColor(0, COLOR_LOOP);
+    pixels.show();
+#endif
   }
 
   /*----------------------------------------------------------------------------

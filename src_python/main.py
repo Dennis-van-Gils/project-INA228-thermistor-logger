@@ -821,6 +821,9 @@ if __name__ == "__main__":
                 log.write(f"\tT_die_{idx} [\u00b0C]")
         log.write("\n")
 
+        # Light up the trigger LED for 1 sec
+        ard.write("trigger_led")
+
     def write_data_to_log():
         data = [ard.state.sensors[0].time]
         fmts = "%.3f"
