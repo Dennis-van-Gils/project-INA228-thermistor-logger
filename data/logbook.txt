@@ -133,3 +133,38 @@ Findings after plotting results:
   approx. +/- 40 mK.
 
   No drift is discernible over 3 hours of a constant 16 'C.
+  
+Calibration 02-06-2026
+----------------------
+We use all new INA228 boards and all new thermistors. See date 11-05-2026 for
+the used equipment. In addition, we now also log the INA228 die temperatures.
+
+The thermistors are placed next to the PT104 probe inside of the temperature
+bath and all are free to the water flow, i.e. not mounted inside of an
+additional copper block, in order to minimize any thermal lag between PT104
+probe and thermistor.
+
+All INA228 boards are at ambient room temperature and they lie next to each
+inside of a plastic box with two opposing vent holes with a fan blowing fresh
+ambient air across. Hence, each INA228 board should experience identical die
+temperatures with respect to each other, and any differences between the
+reported die temperatures can then be attributed to the manufacturer's reported
+accuracy of +/- 1 K.
+
+In future calibration runs we will vary the ambient temperature of the INA228
+dies and the onboard shunt resistors, and study its effect on the acquired
+thermistor resistance values while keeping the thermistors at a fixed bath
+temperature.
+
+Run 1: 02-06-2026
+  Ramp 1
+    Start temperature: 16 'C
+    End   temperature: 40 'C
+    Total ramp time = dT * 10 min = 240 min
+  Ramp 2
+    Start temperature: 40 'C
+    End   temperature: 16 'C
+    Total ramp time = dT * 10 min = 240 min
+  Repeat this cycle twice
+  Afterwards: Soak temperature: 16 'C
+  
