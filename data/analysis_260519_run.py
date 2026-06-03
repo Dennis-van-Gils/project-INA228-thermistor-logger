@@ -24,17 +24,17 @@ figure_args = {"figsize": (16, 10), "dpi": 90}
 
 # Load calibration fit reports
 fit_report_0x40 = td.SteinhartHartFitReport(
-    "run_260519/SteinhartHartFitReport_0x40_260515.json"
+    "260519_run/SteinhartHartFitReport_0x40_260515.json"
 )
 fit_report_0x41 = td.SteinhartHartFitReport(
-    "run_260519/SteinhartHartFitReport_0x41_260515.json"
+    "260519_run/SteinhartHartFitReport_0x41_260515.json"
 )
 fit_report_0x44 = td.SteinhartHartFitReport(
-    "run_260519/SteinhartHartFitReport_0x44_260515.json"
+    "260519_run/SteinhartHartFitReport_0x44_260515.json"
 )
 
 # Load data
-data = td.ThermistorData("run_260519/260519_224424.txt")
+data = td.ThermistorData("260519_run/260519_224424.txt")
 
 # Plot
 fig = plt.figure(**figure_args)

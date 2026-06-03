@@ -3,7 +3,6 @@
 __author__ = "Dennis van Gils"
 __date__ = "15-05-2026"
 
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
@@ -32,16 +31,15 @@ if 0:
     # We are manually going to chop logs into smaller files that each contain
     # a single temperature ramp, going either up or down, or a constant
     # temperature section.
-    data_1 = td.ThermistorData("calibration_260514/260514_154709.txt")
+    data_1 = td.ThermistorData("260511_calibration/260511_151804.txt")
     fig_1 = data_1.quick_plot(save_to_disk=True)
     plt.show()
 
 data = [
-    td.ThermistorData("calibration_260514/260514_154709_1_ramp_up.txt"),
-    td.ThermistorData("calibration_260514/260514_154709_2_ramp_down.txt"),
-    td.ThermistorData("calibration_260514/260514_154709_3_ramp_up.txt"),
-    td.ThermistorData("calibration_260514/260514_154709_4_ramp_down.txt"),
-    td.ThermistorData("calibration_260514/260514_154709_5_constant.txt"),
+    td.ThermistorData("260511_calibration/260511_151804_1_ramp_up.txt"),
+    td.ThermistorData("260511_calibration/260512_185755_1_ramp_up.txt"),
+    td.ThermistorData("260511_calibration/260512_185755_2_ramp_down.txt"),
+    td.ThermistorData("260511_calibration/260512_185755_3_ramp_up.txt"),
 ]
 
 if 0:
@@ -89,7 +87,7 @@ for sensor_idx, sensor_address in enumerate(data[0].sensor_addresses):
     ax.set_xlabel("T$_{PT100}$ (\u00b0C)")
     ax.set_ylabel("R (\u03a9)")
     ax.set_xlim(15, 40)
-    ax.set_ylim(12500, 32500)
+    ax.set_ylim(12500, 31000)
     ax.grid(True)
     fig.legend()
 
@@ -144,8 +142,8 @@ for sensor_idx, ensemble in enumerate(ensembles):
 
     ax.set_xlabel("R (\u03a9)")
     ax.set_ylabel("residuals from fit (K)")
-    ax.set_xlim(12500, 32500)
-    ax.set_ylim(-0.2, 0.2)
+    ax.set_xlim(12500, 31000)
+    ax.set_ylim(-0.35, 0.35)
     ax.grid(True)
 
 plt.show()
@@ -160,21 +158,5 @@ if 0:  # Save figures to disk?
 
         # Save figure: Full range
         fig = figs[sensor_idx]
-        fig.savefig(f"{fn_fig}.png", dpi=120)
-        fig.savefig(f"{fn_fig}.pdf")
-
-        # Save figure: Zoomed in to constant temperature section
-        fn_fig += "_stability"
-
-        # Round R to units of 50 Ohm
-        R_min = np.floor(np.min(data[4].sensors[sensor_idx].R) / 50) * 50
-        R_max = np.ceil(np.max(data[4].sensors[sensor_idx].R) / 50) * 50
-
-        axs = fig.get_axes()
-        axs[0].set_xlim(15.96, 16.12)
-        axs[0].set_ylim(R_min, R_max)
-        axs[1].set_xlim(R_min, R_max)
-        axs[1].set_ylim(-0.2, 0.2)
-
         fig.savefig(f"{fn_fig}.png", dpi=120)
         fig.savefig(f"{fn_fig}.pdf")
