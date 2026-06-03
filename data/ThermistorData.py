@@ -317,12 +317,14 @@ class SteinhartHartFitReport:
         """
         return (
             f"Thermistor {self.sensor_address}\n"
-            f"{self.calibrated_range_R[0]:.0f} \u03a9 \u2264 R \u2264 "
-            f"{self.calibrated_range_R[1]:.0f} \u03a9, "
             f"{self.calibrated_range_T[0] + ABS_ZERO_IN_DEG_C:.1f} "
-            f"\u00b0C \u2264 T \u2264 "
+            "\u00b0C \u2264 "
+            r"T$_\mathregular{PT100}$ "
+            "\u2264 "
             f"{self.calibrated_range_T[1] + ABS_ZERO_IN_DEG_C:.1f} "
-            f"\u00b0C\n"
+            "\u00b0C, "
+            f"{self.calibrated_range_R[0]:.0f} \u03a9 \u2264 R \u2264 "
+            f"{self.calibrated_range_R[1]:.0f} \u03a9\n"
             f"fit: A={self.coeffs[0]:.5e}, "
             f"B={self.coeffs[1]:.5e}, "
             f"C={self.coeffs[2]:.5e}\n"
@@ -548,8 +550,8 @@ class ThermistorData:
     # --------------------------------------------------------------------------
 
     def quick_plot(self, save_to_disk: bool = False) -> Figure:
-        """Create a quick timeseries plot of the thermistor resistances and
-        reference temperature.
+        """Create a quick timeseries plot of the PT104 reference temperature and
+        the thermistor resistances and their INA228 chip die temperatures.
 
         Parameters
         ----------
@@ -564,8 +566,20 @@ class ThermistorData:
         """
 
         fig = plt.figure(figsize=(16, 10), dpi=90)
-        ax1 = fig.add_subplot(2, 1, 1)
-        ax2 = fig.add_subplot(2, 1, 2, sharex=ax1)
+        ax1 = fig.add_subplot(3, 1, 1)
+        ax2 = fig.add_subplot(3, 1, 2, sharex=ax1)
+        ax3 = fig.add_subplot(3, 1, 3, sharex=ax1)
+
+        ax1.plot(
+            self.time,
+            self.PT104,
+            "-",
+            color=COLOR_MAP[-1],
+            label=None,
+        )
+        # ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel(r"T$_\mathregular{PT100}$ " "(\u00b0C)")
+        ax1.grid(True)
 
         extrema_R = [np.nan, np.nan]
         for idx, sensor in enumerate(self.sensors):
@@ -573,35 +587,39 @@ class ThermistorData:
                 np.nanmin([extrema_R[0], np.min(sensor.R)]),
                 np.nanmax([extrema_R[1], np.max(sensor.R)]),
             ]
-            ax1.plot(
+            ax2.plot(
                 sensor.time,
                 sensor.R,
                 "-",
                 color=COLOR_MAP[idx],
                 label=sensor.address,
             )
-        ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel("R (\u03a9)")
-        ax1.grid(True)
+            if len(sensor.T_die) > 0:
+                ax3.plot(
+                    sensor.time,
+                    sensor.T_die,
+                    "-",
+                    color=COLOR_MAP[idx],
+                    label=None,
+                )
 
-        ax2.plot(
-            self.time,
-            self.PT104,
-            "-",
-            color=COLOR_MAP[-1],
-            label="PT104",
-        )
-        ax2.set_xlabel("Time (s)")
-        ax2.set_ylabel("T (\u00b0C)")
+        # ax2.set_xlabel("Time (s)")
+        ax2.set_ylabel("R (\u03a9)")
         ax2.grid(True)
+
+        ax3.set_xlabel("Time (s)")
+        ax3.set_ylabel(r"T$_\mathregular{die}$ " "(\u00b0C)")
+        ax3.grid(True)
 
         fig.legend()
         fig.suptitle(
             f"{self.filename}\n\n"
+            f"{np.min(self.PT104):.1f} \u00b0C \u2264 "
+            r"T$_\mathregular{PT100}$ "
+            "\u2264 "
+            f"{np.max(self.PT104):.1f} \u00b0C\n"
             f"{extrema_R[0]:.0f} \u03a9 \u2264 R \u2264 "
-            f"{extrema_R[1]:.0f} \u03a9\n"
-            f"{np.min(self.PT104):.1f} \u00b0C \u2264 T \u2264 "
-            f"{np.max(self.PT104):.1f} \u00b0C"
+            f"{extrema_R[1]:.0f} \u03a9"
         )
 
         if save_to_disk:

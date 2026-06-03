@@ -84,7 +84,7 @@ for sensor_idx, sensor_address in enumerate(data[0].sensor_addresses):
             **linestyle_args,
         )
 
-    ax.set_xlabel("T$_{PT100}$ (\u00b0C)")
+    ax.set_xlabel(r"T$_\mathregular{PT100}$ " "(\u00b0C)")
     ax.set_ylabel("R (\u03a9)")
     ax.set_xlim(15, 40)
     ax.set_ylim(12500, 31000)
