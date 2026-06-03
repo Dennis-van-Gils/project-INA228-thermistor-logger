@@ -167,4 +167,13 @@ Run 1: 02-06-2026
     Total ramp time = dT * 10 min = 240 min
   Repeat this cycle twice
   Afterwards: Soak temperature: 16 'C
-  
+
+Analysis 03-06-2026
+-------------------
+After plotting results, turns out that the INA228 die temperatures were not
+constant enough and actually fluctuated by 4 'C. The compressor of the
+temperature bath heats up the surrounding ambient air too much and affects the
+INA228 die temperatures. Must redo the calibration with a better temperature
+stability of the INA boards.
+
+

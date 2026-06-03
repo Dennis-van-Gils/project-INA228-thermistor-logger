@@ -1,0 +1,25 @@
+{
+  "sensor_address": "0x41",
+  "date_of_report": "260603_151223",
+  "calibrated_range_T": [
+    289.0775085905327,
+    312.217932894402
+  ],
+  "calibrated_range_R": [
+    12782.0,
+    31061.0
+  ],
+  "coeffs": [
+    0.0006301317180025302,
+    0.00026480462574214364,
+    8.14010651137383e-08
+  ],
+  "rmse": 0.02772183236001911,
+  "data_sources": [
+    "260602_calibration\\260602_174128_1_ramp_up.txt",
+    "260602_calibration\\260602_174128_2_ramp_down.txt",
+    "260602_calibration\\260602_174128_3_ramp_up.txt",
+    "260602_calibration\\260602_174128_4_ramp_down.txt",
+    "260602_calibration\\260602_174128_5_constant.txt"
+  ]
+}
