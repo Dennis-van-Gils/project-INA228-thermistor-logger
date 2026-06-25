@@ -692,11 +692,17 @@ if __name__ == "__main__":
     #   Connect to Arduino
     # --------------------------------------------------------------------------
 
-    # ard = ThermistorLoggerSerial(ring_buffer_capacity=1)
-    # ard.auto_connect()
+    # Wired
+    ard = ThermistorLoggerSerial(ring_buffer_capacity=1)
+    ard.auto_connect()
 
-    ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
-    ard.connect(host="192.168.50.210", port=23)
+    # Wireless Utwente
+    # ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
+    # ard.connect(host="192.168.50.210", port=23)  # Utwente
+
+    # Wireless Mikkers
+    # ard = ThermistorLoggerTelnet(ring_buffer_capacity=1)
+    # ard.connect(host="192.168.1.124", port=23)  # Mikkers
 
     if not ard.is_alive:
         print("\nCheck connection and try resetting the Arduino.")
