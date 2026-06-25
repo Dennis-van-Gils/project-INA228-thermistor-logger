@@ -4,3 +4,5 @@
 .vscode/launch.json
 .vscode/ipch
 src/secrets.h
+src/secrets_mikkers.h
+src/secrets_utwente.h
