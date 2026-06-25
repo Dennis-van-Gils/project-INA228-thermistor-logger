@@ -173,8 +173,8 @@ void setup() {
 
   WiFi.useStaticBuffers(true);
   WiFi.mode(WIFI_STA);
-  // WiFi.config(IPAddress(192, 168, 1, 124), IPAddress(192, 168, 1, 1),
-  //             IPAddress(255, 255, 255, 0));
+  WiFi.config(IPAddress(192, 168, 1, 124), IPAddress(192, 168, 1, 1),
+              IPAddress(255, 255, 255, 0));
 
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
