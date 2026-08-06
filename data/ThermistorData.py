@@ -12,7 +12,7 @@ This module provides:
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
-__date__ = "12-05-2026"
+__date__ = "06-08-2026"
 __version__ = "1.0"
 
 import os
@@ -355,6 +355,12 @@ class INA228_Sensor:
         Voltage timeseries in Volt.
     T_die : numpy.ndarray of float64
         INA228 die temperature timeseries in degree Celsius.
+    fit_report : SteinhartHartFitReport | None
+        SteinhartHartFitReport used to convert the resistance timeseries `R`
+        into temperature timeseries `T`.
+    T : Temperature timeseries ['C] based on the resistance timeseries `R`
+        after having been converted to temperatures by using the fit report
+        `fit_report`.
     """
 
     def __init__(self):
@@ -376,6 +382,15 @@ class INA228_Sensor:
         self.T_die: npt.NDArray[np.float64] = np.array([])
         """INA228 die temperature timeseries ['C]."""
 
+        self.fit_report: SteinhartHartFitReport | None = None
+        """SteinhartHartFitReport used to convert the resistance timeseries `R`
+        into temperature timeseries `T`."""
+
+        self.T: npt.NDArray[np.float64] = np.array([])
+        """Temperature timeseries ['C] based on the resistance timeseries `R`
+        after having been converted to temperatures by using the fit report
+        `fit_report`."""
+
 
 # ------------------------------------------------------------------------------
 #   ThermistorData
@@ -392,6 +407,12 @@ class ThermistorData:
     ----------
     filepath : pathlib.Path or str or None, optional
         Path to a logger text file. If omitted, a file dialog is shown.
+
+    fit_reports : list[SteinhartHartFitReport] | None, optional
+        List of SteinhartHartFitReports objects to be used to convert resistance
+        timeseries `sensors[idx].R` into temperature timeseries `sensors[idx].T`
+        for each individual sensor address. If omitted, the temperature
+        timeseries will remain empty.
 
     Attributes
     ----------
@@ -414,7 +435,11 @@ class ThermistorData:
         PT-104 reference temperatures in degree Celsius.
     """
 
-    def __init__(self, filepath: Path | str | None = None):
+    def __init__(
+        self,
+        filepath: Path | str | None = None,
+        fit_reports: list[SteinhartHartFitReport] | None = None,
+    ):
         self.filepath: str = ""
         """Full path to the loaded file."""
 
@@ -447,6 +472,8 @@ class ThermistorData:
         accuracy."""
 
         self.read_file(filepath=filepath)
+        if fit_reports is not None:
+            self.apply_fit_reports(fit_reports)
 
     # --------------------------------------------------------------------------
     #   read_file
@@ -546,6 +573,33 @@ class ThermistorData:
             sensor.T_die = np.full_like(sensor.R, np.nan, dtype=float)
 
     # --------------------------------------------------------------------------
+    #   apply_fit_reports
+    # --------------------------------------------------------------------------
+
+    def apply_fit_reports(self, fit_reports: list[SteinhartHartFitReport]):
+        """Use each SteinhartHartFitReport, one for each sensor address, to
+        convert the resistance timeseries `sensors[idx].R` into temperature
+        timeseries `sensors[idx].T` for each matching sensor address.
+
+        Parameters
+        ----------
+        fit_reports : list[SteinhartHartFitReport]
+            List of SteinhartHartFitReport class instances.
+        """
+
+        for report in fit_reports:
+            # Match sensor addresses
+            for sensor in self.sensors:
+                if sensor.address != report.sensor_address:
+                    continue
+
+                sensor.fit_report = report
+                sensor.T = (
+                    np.asarray(steinhart_hart(sensor.R, report.coeffs))
+                    + ABS_ZERO_IN_DEG_C
+                )
+
+    # --------------------------------------------------------------------------
     #   quick_plot
     # --------------------------------------------------------------------------
 
@@ -621,6 +675,65 @@ class ThermistorData:
             f"{extrema_R[0]:.0f} \u03a9 \u2264 R \u2264 "
             f"{extrema_R[1]:.0f} \u03a9"
         )
+
+        if save_to_disk:
+            file_parts = os.path.splitext(self.filepath)
+            fig.savefig(f"{file_parts[0]}.png", dpi=120)
+            fig.savefig(f"{file_parts[0]}.pdf")
+
+        return fig
+
+    # --------------------------------------------------------------------------
+    #   quick_plot_temperatures
+    # --------------------------------------------------------------------------
+
+    def quick_plot_temperatures(self, save_to_disk: bool = False) -> Figure:
+        """Create a quick timeseries plot of the thermistor temperatures and
+        their corresponding INA228 chip die temperatures.
+
+        Parameters
+        ----------
+        save_to_disk : bool, default False
+            If ``True``, save the plot as PNG and PDF files next to the loaded
+            data file.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The created matplotlib figure.
+        """
+
+        fig = plt.figure(figsize=(16, 10), dpi=90)
+        ax1 = fig.add_subplot(2, 1, 1)
+        ax2 = fig.add_subplot(2, 1, 2, sharex=ax1)
+
+        for idx, sensor in enumerate(self.sensors):
+            ax1.plot(
+                sensor.time,
+                sensor.T,
+                "-",
+                color=COLOR_MAP[idx],
+                label=sensor.address,
+            )
+            if len(sensor.T_die) > 0:
+                ax2.plot(
+                    sensor.time,
+                    sensor.T_die,
+                    "-",
+                    color=COLOR_MAP[idx],
+                    label=None,
+                )
+
+        # ax1.set_xlabel("Time (s)")
+        ax1.set_ylabel("T \u00b0C)")
+        ax1.grid(True)
+
+        ax2.set_xlabel("Time (s)")
+        ax2.set_ylabel(r"T$_\mathregular{die}$ " "(\u00b0C)")
+        ax2.grid(True)
+
+        fig.legend()
+        fig.suptitle(f"{self.filename}")
 
         if save_to_disk:
             file_parts = os.path.splitext(self.filepath)
