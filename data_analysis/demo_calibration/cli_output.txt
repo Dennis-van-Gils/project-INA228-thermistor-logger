@@ -1,0 +1,166 @@
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x40_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x40
+Date       260807_180108
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.1 K ≤ T ≤ 312.3 K
+  12962 Ω ≤ R ≤ 31710 Ω
+  A = 5.33370e-04
+  B = 2.79544e-04
+  C = 2.58368e-08
+  RMSE: 0.035 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x41_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x41
+Date       260807_180108
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.1 K ≤ T ≤ 312.3 K
+  12763 Ω ≤ R ≤ 31090 Ω
+  A = 6.20869e-04
+  B = 2.66216e-04
+  C = 7.64549e-08
+  RMSE: 0.034 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x44_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x44
+Date       260807_180108
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.0 K ≤ T ≤ 312.2 K
+  13012 Ω ≤ R ≤ 31747 Ω
+  A = 5.56966e-04
+  B = 2.75387e-04
+  C = 4.33796e-08
+  RMSE: 0.033 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x45_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x45
+Date       260807_180108
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.0 K ≤ T ≤ 312.2 K
+  12889 Ω ≤ R ≤ 31432 Ω
+  A = 5.11990e-04
+  B = 2.82551e-04
+  C = 1.96241e-08
+  RMSE: 0.035 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saving figures to disk... 
+done.
+done.
+done.
+done.
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x40_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x40
+Date       260807_180336
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.1 K ≤ T ≤ 312.3 K
+  12962 Ω ≤ R ≤ 31710 Ω
+  A = 5.33370e-04
+  B = 2.79544e-04
+  C = 2.58368e-08
+  RMSE: 0.035 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x41_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x41
+Date       260807_180336
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.1 K ≤ T ≤ 312.3 K
+  12763 Ω ≤ R ≤ 31090 Ω
+  A = 6.20869e-04
+  B = 2.66216e-04
+  C = 7.64549e-08
+  RMSE: 0.034 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x44_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x44
+Date       260807_180336
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.0 K ≤ T ≤ 312.2 K
+  13012 Ω ≤ R ≤ 31747 Ω
+  A = 5.56966e-04
+  B = 2.75387e-04
+  C = 4.33796e-08
+  RMSE: 0.033 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saved fit report: E:\Work\_GitHub_repo\project-INA228-thermistor-logger\data_analysis\demo_calibration\fit_reports\SteinhartHartFitReport_0x45_260807.json
+-------------------------
+Steinhart-Hart fit report
+Thermistor 0x45
+Date       260807_180336
+-------------------------
+  15.9 °C ≤ T ≤ 39.1 °C
+  289.0 K ≤ T ≤ 312.2 K
+  12889 Ω ≤ R ≤ 31432 Ω
+  A = 5.11990e-04
+  B = 2.82551e-04
+  C = 1.96241e-08
+  RMSE: 0.035 K
+  Data sources:
+    demo_calibration\260603_193804_1_ramp_up.txt
+    demo_calibration\260603_193804_2_ramp_down.txt
+    demo_calibration\260603_193804_3_ramp_up.txt
+    demo_calibration\260603_193804_4_ramp_down.txt
+    demo_calibration\260603_193804_5_constant.txt
+
+Saving figures to disk... done.

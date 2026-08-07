@@ -12,7 +12,7 @@ This module provides:
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
-__date__ = "06-08-2026"
+__date__ = "07-08-2026"
 __version__ = "1.0"
 
 import os
@@ -235,7 +235,7 @@ class SteinhartHartFitReport:
 
         return msg
 
-    def save_file(self):
+    def save_file(self, folder: Path | str | None = None):
         """Write the fit report to a JSON file.
 
         Notes
@@ -249,6 +249,11 @@ class SteinhartHartFitReport:
             f"{self.sensor_address}_"
             f"{self.date_of_report[:6]}.json"
         )
+
+        if folder is not None:
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            filepath = Path(os.path.join(folder, filepath))
 
         payload = {
             "sensor_address": self.sensor_address,
