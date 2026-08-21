@@ -12,8 +12,8 @@ This module provides:
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
-__date__ = "07-08-2026"
-__version__ = "1.0"
+__date__ = "21-08-2026"
+__version__ = "1.1"
 
 import os
 import re
@@ -44,109 +44,6 @@ COLOR_MAP = [
 ]
 """First 4 are for each of the 4 sensor addresses, i.e. thermistors, 5th is for
 extra, and the last is the color for the PT104 reference temperature curve."""
-
-
-# ------------------------------------------------------------------------------
-#   steinhart_hart
-# ------------------------------------------------------------------------------
-
-
-def steinhart_hart(
-    R: float | npt.NDArray[np.float64],
-    A: float | tuple[float, float, float] | npt.NDArray[np.float64],
-    B: float = np.nan,
-    C: float = np.nan,
-) -> float | npt.NDArray[np.float64]:
-    """Evaluate the Steinhart-Hart temperature equation.
-
-    The equation relates thermistor resistance ``R`` to temperature ``T`` in
-    Kelvin:
-
-    ``T = 1 / (A + B * ln(R) + C * ln(R)^3)``.
-
-    Parameters
-    ----------
-    R : float or numpy.ndarray of float64
-        Thermistor resistance in Ohm.
-    A : float or tuple[float, float, float] or numpy.ndarray of float64
-        Either coefficient ``A`` or a sequence ``(A, B, C)``.
-    B : float, default numpy.nan
-        Coefficient ``B``. Ignored when ``A`` is passed as a 3-element
-        sequence.
-    C : float, default numpy.nan
-        Coefficient ``C``. Ignored when ``A`` is passed as a 3-element
-        sequence.
-
-    Returns
-    -------
-    float or numpy.ndarray of float64
-        Temperature in Kelvin.
-    """
-    if isinstance(A, (tuple, np.ndarray)):
-        coeff_A = A[0]
-        coeff_B = A[1]
-        coeff_C = A[2]
-    else:
-        coeff_A = A
-        coeff_B = B
-        coeff_C = C
-
-    lnR = np.log(R)
-    return 1.0 / (coeff_A + coeff_B * lnR + coeff_C * lnR**3)
-
-
-# ------------------------------------------------------------------------------
-#   perform_steinhart_hart_fit
-# ------------------------------------------------------------------------------
-
-
-def perform_steinhart_hart_fit(
-    R: npt.NDArray[np.float64],
-    T: npt.NDArray[np.float64],
-    initial_guess: tuple[float, float, float] = (1e-3, 2e-4, 1e-7),
-) -> tuple[
-    SteinhartHartFitReport,
-    npt.NDArray[np.float64],
-    npt.NDArray[np.float64],
-]:
-    """Fit Steinhart-Hart coefficients to resistance-temperature data.
-
-    Parameters
-    ----------
-    R : numpy.ndarray of float64
-        Thermistor resistance values in Ohm.
-    T : numpy.ndarray of float64
-        Reference temperatures in Kelvin.
-    initial_guess : tuple[float, float, float], default (1e-3, 2e-4, 1e-7)
-        Initial guess for coefficients ``(A, B, C)``.
-
-    Returns
-    -------
-    fit_report : SteinhartHartFitReport
-        Fit report containing coefficients, calibrated ranges, RMSE, and
-        metadata placeholders.
-    fitted_temp_K : numpy.ndarray of float64
-        Modeled temperatures in Kelvin evaluated at input ``R``.
-    residuals_temp_K : numpy.ndarray of float64
-        Fit residuals in Kelvin, defined as ``fitted_temp_K - T``.
-    """
-    params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
-    coeffs = (params[0], params[1], params[2])  # Convert array to tuple
-
-    fitted_temp_K = np.asarray(steinhart_hart(R, coeffs))
-    residuals_temp_K = fitted_temp_K - T
-
-    fit_report = SteinhartHartFitReport()
-    fit_report.coeffs = coeffs
-    fit_report.rmse = np.sqrt(np.mean(residuals_temp_K**2))
-    fit_report.calibrated_range_R = (np.min(R), np.max(R))
-    fit_report.calibrated_range_T = (
-        np.min(fitted_temp_K),
-        np.max(fitted_temp_K),
-    )
-
-    return fit_report, fitted_temp_K, residuals_temp_K
-
 
 # ------------------------------------------------------------------------------
 #   SteinhartHartFitReport
@@ -637,7 +534,7 @@ class ThermistorData:
             label=None,
         )
         # ax1.set_xlabel("Time (s)")
-        ax1.set_ylabel(r"T$_\mathregular{PT100}$ " "(\u00b0C)")
+        ax1.set_ylabel(r"T$_\mathregular{PT100}$ " + "(\u00b0C)")
         ax1.grid(True)
 
         extrema_R = [np.nan, np.nan]
@@ -667,7 +564,7 @@ class ThermistorData:
         ax2.grid(True)
 
         ax3.set_xlabel("Time (s)")
-        ax3.set_ylabel(r"T$_\mathregular{die}$ " "(\u00b0C)")
+        ax3.set_ylabel(r"T$_\mathregular{die}$ " + "(\u00b0C)")
         ax3.grid(True)
 
         fig.legend()
@@ -734,7 +631,7 @@ class ThermistorData:
         ax1.grid(True)
 
         ax2.set_xlabel("Time (s)")
-        ax2.set_ylabel(r"T$_\mathregular{die}$ " "(\u00b0C)")
+        ax2.set_ylabel(r"T$_\mathregular{die}$ " + "(\u00b0C)")
         ax2.grid(True)
 
         fig.legend()
@@ -812,3 +709,105 @@ class RT_Ensemble:
         sorted_idx = np.argsort(self.T)
         self.R = self.R[sorted_idx]
         self.T = self.T[sorted_idx]
+
+
+# ------------------------------------------------------------------------------
+#   steinhart_hart
+# ------------------------------------------------------------------------------
+
+
+def steinhart_hart(
+    R: float | npt.NDArray[np.float64],
+    A: float | tuple[float, float, float] | npt.NDArray[np.float64],
+    B: float = np.nan,
+    C: float = np.nan,
+) -> float | npt.NDArray[np.float64]:
+    """Evaluate the Steinhart-Hart temperature equation.
+
+    The equation relates thermistor resistance ``R`` to temperature ``T`` in
+    Kelvin:
+
+    ``T = 1 / (A + B * ln(R) + C * ln(R)^3)``.
+
+    Parameters
+    ----------
+    R : float or numpy.ndarray of float64
+        Thermistor resistance in Ohm.
+    A : float or tuple[float, float, float] or numpy.ndarray of float64
+        Either coefficient ``A`` or a sequence ``(A, B, C)``.
+    B : float, default numpy.nan
+        Coefficient ``B``. Ignored when ``A`` is passed as a 3-element
+        sequence.
+    C : float, default numpy.nan
+        Coefficient ``C``. Ignored when ``A`` is passed as a 3-element
+        sequence.
+
+    Returns
+    -------
+    float or numpy.ndarray of float64
+        Temperature in Kelvin.
+    """
+    if isinstance(A, (tuple, np.ndarray)):
+        coeff_A = A[0]
+        coeff_B = A[1]
+        coeff_C = A[2]
+    else:
+        coeff_A = A
+        coeff_B = B
+        coeff_C = C
+
+    lnR = np.log(R)
+    return 1.0 / (coeff_A + coeff_B * lnR + coeff_C * lnR**3)
+
+
+# ------------------------------------------------------------------------------
+#   perform_steinhart_hart_fit
+# ------------------------------------------------------------------------------
+
+
+def perform_steinhart_hart_fit(
+    R: npt.NDArray[np.float64],
+    T: npt.NDArray[np.float64],
+    initial_guess: tuple[float, float, float] = (1e-3, 2e-4, 1e-7),
+) -> tuple[
+    SteinhartHartFitReport,
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+]:
+    """Fit Steinhart-Hart coefficients to resistance-temperature data.
+
+    Parameters
+    ----------
+    R : numpy.ndarray of float64
+        Thermistor resistance values in Ohm.
+    T : numpy.ndarray of float64
+        Reference temperatures in Kelvin.
+    initial_guess : tuple[float, float, float], default (1e-3, 2e-4, 1e-7)
+        Initial guess for coefficients ``(A, B, C)``.
+
+    Returns
+    -------
+    fit_report : SteinhartHartFitReport
+        Fit report containing coefficients, calibrated ranges, RMSE, and
+        metadata placeholders.
+    fitted_temp_K : numpy.ndarray of float64
+        Modeled temperatures in Kelvin evaluated at input ``R``.
+    residuals_temp_K : numpy.ndarray of float64
+        Fit residuals in Kelvin, defined as ``fitted_temp_K - T``.
+    """
+    params, _covariance = curve_fit(steinhart_hart, R, T, p0=initial_guess)
+    coeffs = (params[0], params[1], params[2])  # Convert array to tuple
+
+    fitted_temp_K = np.asarray(steinhart_hart(R, coeffs))
+    residuals_temp_K = fitted_temp_K - T
+
+    fit_report = SteinhartHartFitReport()
+    fit_report.coeffs = coeffs
+    fit_report.rmse = np.sqrt(np.mean(residuals_temp_K**2))
+    fit_report.calibrated_range_R = (np.min(R), np.max(R))
+    fit_report.calibrated_range_T = (
+        np.min(fitted_temp_K),
+        np.max(fitted_temp_K),
+    )
+
+    return fit_report, fitted_temp_K, residuals_temp_K
