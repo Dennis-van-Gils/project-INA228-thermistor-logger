@@ -8,8 +8,8 @@ current and voltage values of each thermistor.
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-INA228-thermistor-logger"
-__date__ = "07-05-2026"
-__version__ = "1.0"
+__date__ = "24-08-2026"
+__version__ = "1.1"
 # pylint: disable=missing-function-docstring, unnecessary-lambda
 # pylint: disable=multiple-statements
 
@@ -50,7 +50,7 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from data.ThermistorData import (  # type: ignore
+from data_analysis.ThermistorData import (  # type: ignore
     ABS_ZERO_IN_DEG_C,
     SteinhartHartFitReport,
     steinhart_hart,
